@@ -1,0 +1,634 @@
+/* ============================================================
+   bancoxprov.css — Cuentas Bancarias por Proveedor
+   Estilo: Corporativo moderno, limpio, fondo gris suave
+   ============================================================ */
+/* ---------- Variables ---------- */
+
+:root {
+  --bxp-card:         #ffffff;
+  --bxp-border:       #e2e7ef;
+  --bxp-shadow:       0 1px 4px rgba(30, 50, 100, 0.07);
+  --bxp-shadow-md:    0 4px 16px rgba(30, 50, 100, 0.10);
+
+  --bxp-text-head:    #0d1b2e;
+  --bxp-text-sub:     #6b7a99;
+  --bxp-text-label:   #8494b2;
+  --bxp-text-body:    #2d3a52;
+
+  --bxp-blue:         #2563eb;
+  --bxp-blue-hover:   #1d4fd8;
+  --bxp-blue-light:   #eff4ff;
+
+  --bxp-radius-sm:    8px;
+  --bxp-radius:       14px;
+  --bxp-radius-lg:    18px;
+
+  --bxp-font:         'DM Sans', 'Segoe UI', sans-serif;
+
+  --bxp-bg:           #f5f7fb;
+}
+
+/* ---------- Fuente (si no está cargada globalmente) ---------- */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+
+/* ============================================================
+   LAYOUT PRINCIPAL
+   ============================================================ */
+
+#view-bancoxprov {
+  font-family: var(--bxp-font);
+  background: var(--bxp-bg);
+  min-height: 100vh;
+  padding: 32px 36px 48px;
+  box-sizing: border-box;
+  color: var(--bxp-text-body);
+}
+
+/* ============================================================
+   PAGE HEADER
+   ============================================================ */
+
+#view-bancoxprov .page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+#view-bancoxprov .page-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--bxp-text-head);
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+}
+
+#view-bancoxprov .page-subtitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--bxp-text-sub);
+  margin-top: 5px;
+}
+
+/* ---------- Botón principal ---------- */
+#view-bancoxprov .btn-blue {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bxp-blue);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 22px;
+  font-family: var(--bxp-font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  transition: background 0.18s, box-shadow 0.18s, transform 0.12s;
+  white-space: nowrap;
+}
+
+#view-bancoxprov .btn-blue:hover {
+  background: var(--bxp-blue-hover);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+  transform: translateY(-1px);
+}
+
+#view-bancoxprov .btn-blue:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+#view-bancoxprov .btn-blue svg {
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   BARRA DE FILTROS
+   ============================================================ */
+
+#view-bancoxprov .banco-filters-bar {
+  background: var(--bxp-card);
+  border-radius: var(--bxp-radius);
+  border: 1px solid var(--bxp-border);
+  box-shadow: var(--bxp-shadow);
+  padding: 20px 24px;
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Grupo de filtro ---------- */
+#view-bancoxprov .banco-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 180px;
+}
+
+#view-bancoxprov .banco-filter-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.75px;
+  text-transform: uppercase;
+  color: var(--bxp-text-label);
+}
+
+/* ---------- Input búsqueda ---------- */
+#view-bancoxprov .banco-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+#view-bancoxprov .banco-search-wrap svg {
+  position: absolute;
+  left: 12px;
+  color: var(--bxp-text-sub);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+#view-bancoxprov .banco-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 36px;
+  border: 1.5px solid var(--bxp-border);
+  border-radius: var(--bxp-radius-sm);
+  font-family: var(--bxp-font);
+  font-size: 13.5px;
+  color: var(--bxp-text-body);
+  background: #fff;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  box-sizing: border-box;
+}
+
+#view-bancoxprov .banco-search-input::placeholder {
+  color: #bcc6d8;
+}
+
+#view-bancoxprov .banco-search-input:focus {
+  border-color: var(--bxp-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.10);
+}
+
+/* ---------- Selects ---------- */
+#view-bancoxprov .banco-filter-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  padding: 10px 38px 10px 14px;
+  border: 1.5px solid var(--bxp-border);
+  border-radius: var(--bxp-radius-sm);
+  font-family: var(--bxp-font);
+  font-size: 13.5px;
+  color: var(--bxp-text-body);
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238494b2' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 12px center;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  box-sizing: border-box;
+}
+
+#view-bancoxprov .banco-filter-select:focus {
+  border-color: var(--bxp-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.10);
+}
+
+/* ---------- Botón limpiar filtros ---------- */
+#view-bancoxprov .banco-filter-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--bxp-blue);
+  border: 1.5px solid var(--bxp-border);
+  border-radius: var(--bxp-radius-sm);
+  padding: 10px 16px;
+  font-family: var(--bxp-font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: flex-end;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+#view-bancoxprov .banco-filter-clear:hover {
+  background: var(--bxp-blue-light);
+  border-color: var(--bxp-blue);
+}
+
+/* ============================================================
+   TARJETA DE TABLA
+   ============================================================ */
+
+#view-bancoxprov .table-card {
+  background: var(--bxp-card);
+  border-radius: var(--bxp-radius);
+  border: 1px solid var(--bxp-border);
+  box-shadow: var(--bxp-shadow);
+  overflow: hidden;
+}
+
+#view-bancoxprov .table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px 14px;
+  border-bottom: 1px solid var(--bxp-border);
+}
+
+#view-bancoxprov .table-header h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bxp-text-head);
+  margin: 0;
+}
+
+#view-bancoxprov .table-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bxp-text-sub);
+  background: var(--bxp-bg);
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+
+/* ---------- Contenedor de tabla ---------- */
+#view-bancoxprov .table-wrap {
+  overflow-x: auto;
+}
+
+/* ---------- Tabla ---------- */
+#view-bancoxprov #tabla-bancoxprov {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#view-bancoxprov #tabla-bancoxprov thead tr {
+  background: transparent;
+}
+
+#view-bancoxprov #tabla-bancoxprov thead th {
+  padding: 12px 20px;
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--bxp-text-label);
+  border-bottom: 1px solid var(--bxp-border);
+  white-space: nowrap;
+}
+
+#view-bancoxprov #tabla-bancoxprov tbody tr {
+  transition: background 0.12s;
+}
+
+#view-bancoxprov #tabla-bancoxprov tbody tr:last-child td {
+  border-bottom: none;
+}
+
+#view-bancoxprov #tabla-bancoxprov tbody tr:hover {
+  background: #f7f9fd;
+}
+
+#view-bancoxprov #tabla-bancoxprov tbody td {
+  padding: 13px 20px;
+  font-size: 13.5px;
+  color: var(--bxp-text-body);
+  vertical-align: middle;
+  border-bottom: 1px solid #f0f3f8;
+}
+
+#view-bancoxprov #tabla-bancoxprov tbody td.bxp-actions-cell {
+  text-align: left;
+  display: flex;
+}
+
+/* ---------- Badges de tipo / titularidad ---------- */
+#view-bancoxprov .badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+#view-bancoxprov .badge--corriente {
+  background: #eff4ff;
+  color: #2563eb;
+}
+
+#view-bancoxprov .badge--ahorros {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+/* ---------- Botones de acción en filas ---------- */
+#view-bancoxprov .row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+#view-bancoxprov .row-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--bxp-text-sub);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.13s, color 0.13s;
+}
+
+#view-bancoxprov .row-action-btn:hover {
+  background: var(--bxp-bg);
+  color: var(--bxp-text-head);
+}
+
+#view-bancoxprov .row-action-btn--edit:hover {
+  background: var(--bxp-blue-light);
+  color: var(--bxp-blue);
+}
+
+#view-bancoxprov .row-action-btn--delete:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* ============================================================
+   ESTADO VACÍO
+   ============================================================ */
+
+#view-bancoxprov .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 56px 24px;
+  color: var(--bxp-text-sub);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+#view-bancoxprov .empty-state-icon {
+  color: #c8d3e8;
+}
+
+#view-bancoxprov .empty-state--hidden {
+  display: none;
+}
+
+/* ============================================================
+   RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 768px) {
+  #view-bancoxprov {
+    padding: 20px 16px 40px;
+  }
+
+  #view-bancoxprov .page-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  #view-bancoxprov .banco-filters-bar {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  #view-bancoxprov .banco-filter-group {
+    min-width: 100%;
+  }
+
+  #view-bancoxprov .banco-filter-clear {
+    width: 100%;
+    justify-content: center;
+  }
+
+  #view-bancoxprov .page-title {
+    font-size: 20px;
+  }
+}
+/* ============================================================
+   MODAL — NUEVA / EDITAR CUENTA POR PROVEEDOR
+   (antes se inyectaba por JS; ahora vive en el CSS estático
+   porque el modal se renderiza directamente en banxprov.php)
+   ============================================================ */
+
+.bxp-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 27, 46, 0.45);
+  backdrop-filter: blur(3px);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.bxp-overlay--open { display: flex; animation: bxpFadeIn .18s ease; }
+
+@keyframes bxpFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bxpSlideUp { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+.bxp-modal {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(13,27,46,.18);
+  width: 100%;
+  max-width: 600px;
+  animation: bxpSlideUp .22s cubic-bezier(.22,.68,0,1.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 95vh;
+}
+
+.bxp-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid var(--bxp-border);
+  flex-shrink: 0;
+}
+.bxp-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--bxp-text-head);
+  margin: 0 0 4px;
+  font-family: var(--bxp-font);
+}
+.bxp-modal-subtitle {
+  font-size: 12.5px;
+  color: var(--bxp-text-sub);
+  margin: 0;
+  font-family: var(--bxp-font);
+}
+.bxp-modal-close {
+  width: 34px; height: 34px;
+  border: 1.5px solid var(--bxp-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--bxp-text-sub);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .14s, color .14s;
+  flex-shrink: 0;
+}
+.bxp-modal-close:hover { background: #f4f6fb; color: var(--bxp-text-head); }
+
+.bxp-modal-body {
+  padding: 22px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+}
+.bxp-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 520px) { .bxp-form-row { grid-template-columns: 1fr; } }
+
+.bxp-field { display: flex; flex-direction: column; gap: 5px; }
+.bxp-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .75px;
+  text-transform: uppercase;
+  color: var(--bxp-text-label);
+  font-family: var(--bxp-font);
+}
+.bxp-req { color: #e53e3e; }
+
+.bxp-input, .bxp-select {
+  padding: 10px 14px;
+  border: 1.5px solid var(--bxp-border);
+  border-radius: 8px;
+  font-family: var(--bxp-font);
+  font-size: 13.5px;
+  color: var(--bxp-text-body);
+  background: #fff;
+  outline: none;
+  transition: border-color .18s, box-shadow .18s;
+  width: 100%;
+  box-sizing: border-box;
+}
+.bxp-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238494b2' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 12px center;
+  cursor: pointer;
+  padding-right: 36px;
+}
+.bxp-select:disabled { background-color: #f4f6fb; color: var(--bxp-text-label); cursor: not-allowed; }
+.bxp-input:disabled  { background-color: #f4f6fb; color: var(--bxp-text-label); cursor: not-allowed; }
+.bxp-input::placeholder { color: #bcc6d8; }
+.bxp-input:focus, .bxp-select:focus {
+  border-color: var(--bxp-blue);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.10);
+}
+.bxp-input--error {
+  border-color: #e53e3e !important;
+  box-shadow: 0 0 0 3px rgba(229,62,62,.08) !important;
+}
+
+.bxp-error {
+  display: none;
+  font-size: 11.5px;
+  color: #e53e3e;
+  font-family: var(--bxp-font);
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+.bxp-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 28px 22px;
+  border-top: 1px solid var(--bxp-border);
+  flex-shrink: 0;
+}
+.bxp-btn-cancel {
+  background: transparent;
+  border: none;
+  color: var(--bxp-text-sub);
+  font-family: var(--bxp-font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 18px;
+  border-radius: 50px;
+  transition: color .15s, background .15s;
+}
+.bxp-btn-cancel:hover { background: #f4f6fb; color: var(--bxp-text-body); }
+
+.bxp-btn-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--bxp-blue);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 11px 22px;
+  font-family: var(--bxp-font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37,99,235,.35);
+  transition: background .18s, box-shadow .18s, transform .12s;
+}
+.bxp-btn-save:hover {
+  background: var(--bxp-blue-hover);
+  box-shadow: 0 6px 18px rgba(37,99,235,.45);
+  transform: translateY(-1px);
+}
+.bxp-btn-save:active { transform: translateY(0); }
+
+/* ---- Toast ---- */
+.bxp-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #0d1b2e;
+  color: #fff;
+  font-family: var(--bxp-font);
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 12px 22px;
+  border-radius: 50px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s, transform .25s;
+  z-index: 10000;
+  white-space: nowrap;
+}
+.bxp-toast--show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

@@ -1,0 +1,656 @@
+/* ============================================
+   FESTIVOS (TESORERÍA) - Estilos unificados con Dashboard
+   Basado en el mismo sistema visual de proveedores.css
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+#mod-festivos {
+    --dash-bg:           #ffffff;
+    --dash-card:         #ffffff;
+    --dash-border:       #e9edf2;
+    --dash-shadow-sm:    0 1px 2px rgba(0,0,0,0.03), 0 1px 2px rgba(0,0,0,0.05);
+    --dash-shadow-md:    0 4px 12px rgba(0,0,0,0.06);
+    --dash-text-head:    #0a0c1a;
+    --dash-text-body:    #1e293b;
+    --dash-text-sub:     #475569;
+    --dash-text-muted:   #94a3b8;
+    --dash-blue:         #3b82f6;
+    --dash-blue-light:   #eff6ff;
+    --dash-green-dark:   #059669;
+    --dash-green-light:  #ecfdf5;
+    --dash-red:          #ef4444;
+    --dash-red-light:    #fef2f2;
+    --dash-amber:        #f59e0b;
+    --dash-amber-light:  #fffbeb;
+    --dash-rose:         #f43f5e;
+    --dash-rose-light:   #fff1f2;
+    --dash-radius:       16px;
+    --dash-radius-sm:    10px;
+    --dash-font:         'DM Sans', system-ui, sans-serif;
+
+    font-family: var(--dash-font);
+    background: var(--dash-bg);
+    min-height: 100vh;
+    padding: 0;
+}
+
+/* ---- ENCABEZADO DE MÓDULO ---- */
+#mod-festivos .module-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+#mod-festivos .module-header-text h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--dash-text-head);
+    margin-bottom: 4px;
+}
+
+#mod-festivos .module-header-text p {
+    font-size: 13px;
+    color: var(--dash-text-sub);
+}
+
+/* ---- STATS ---- */
+#mod-festivos .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+#mod-festivos .stat-card {
+    background: var(--dash-card);
+    border: 1px solid var(--dash-border);
+    border-radius: var(--dash-radius);
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: var(--dash-shadow-sm);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#mod-festivos .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--dash-shadow-md);
+}
+
+#mod-festivos .stat-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+#mod-festivos .stat-icon.blue   { background: var(--dash-blue-light);  color: var(--dash-blue); }
+#mod-festivos .stat-icon.green  { background: var(--dash-green-light); color: var(--dash-green-dark); }
+#mod-festivos .stat-icon.red    { background: var(--dash-red-light);   color: var(--dash-red); }
+#mod-festivos .stat-icon.yellow { background: var(--dash-amber-light); color: var(--dash-amber); }
+
+#mod-festivos .stat-label {
+    font-size: 12px;
+    color: var(--dash-text-muted);
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+#mod-festivos .stat-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--dash-text-head);
+}
+
+/* ---- FILTROS ---- */
+#mod-festivos .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+#mod-festivos .search-wrapper {
+    position: relative;
+    flex: 1;
+    max-width: 360px;
+}
+
+#mod-festivos .search-icon {
+    position: absolute;
+    left: 14px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--dash-text-muted);
+    font-size: 13px;
+}
+
+#mod-festivos .search-input {
+    width: 100%;
+    padding: 10px 14px 10px 36px;
+    border: 1px solid var(--dash-border);
+    border-radius: 50px;
+    font-size: 13px;
+    font-family: var(--dash-font);
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+#mod-festivos .search-input:focus { border-color: var(--dash-blue); }
+
+#mod-festivos .btn-clear-filter {
+    display: flex; align-items: center; gap: 6px;
+    border: none; background: var(--dash-red-light);
+    color: var(--dash-red); font-size: 12px; font-weight: 600;
+    padding: 8px 14px; border-radius: 50px; cursor: pointer;
+    font-family: var(--dash-font);
+    transition: background 0.15s ease;
+}
+
+#mod-festivos .btn-clear-filter:hover { background: var(--dash-rose-light); }
+
+#mod-festivos .filter-info {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--dash-text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* ---- TABLA ---- */
+#mod-festivos .table-container {
+    background: var(--dash-card);
+    border: 1px solid var(--dash-border);
+    border-radius: var(--dash-radius);
+    overflow: hidden;
+    box-shadow: var(--dash-shadow-sm);
+}
+
+#mod-festivos .data-table { width: 100%; border-collapse: collapse; }
+
+#mod-festivos .data-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--dash-text-muted);
+    background: #fafbfc;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--dash-border);
+}
+
+#mod-festivos .data-table td {
+    padding: 14px 16px;
+    font-size: 13px;
+    color: var(--dash-text-body);
+    border-bottom: 1px solid var(--dash-border);
+}
+
+#mod-festivos .data-table tr:last-child td { border-bottom: none; }
+#mod-festivos .data-table tbody tr:hover td { background: #fafcff; }
+
+.text-center { text-align: center; }
+.text-right  { text-align: right; }
+
+/* ---- BOTONES DE ACCIÓN EN TABLA ---- */
+#mod-festivos .btn-icon-sm {
+    border: none; border-radius: 8px;
+    width: 30px; height: 30px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 12px;
+    margin: 0 2px;
+    transition: transform 0.1s ease, filter 0.1s ease;
+}
+
+#mod-festivos .btn-icon-sm.view   { background: var(--dash-blue-light);  color: var(--dash-blue); }
+#mod-festivos .btn-icon-sm.edit   { background: var(--dash-amber-light); color: var(--dash-amber); }
+#mod-festivos .btn-icon-sm.reject { background: var(--dash-rose-light);  color: var(--dash-rose); }
+#mod-festivos .btn-icon-sm:hover  { transform: translateY(-1px); filter: brightness(0.95); }
+
+/* ---- ESTADO VACÍO ---- */
+#mod-festivos .empty-row td { text-align: center; padding: 48px !important; }
+
+#mod-festivos .empty-state { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+#mod-festivos .empty-state i {
+    font-size: 32px;
+    color: var(--dash-text-muted);
+    margin-bottom: 6px;
+}
+
+#mod-festivos .empty-state p {
+    font-size: 14px; font-weight: 600; color: var(--dash-text-sub);
+}
+
+#mod-festivos .empty-state span {
+    font-size: 12px; color: var(--dash-text-muted);
+}
+
+/* ============================================
+   PARÁMETROS DE TESORERÍA - Formulario de configuración
+   ============================================ */
+#mod-pmtros-tescxp {
+    --dash-bg:           #ffffff;
+    --dash-card:         #ffffff;
+    --dash-border:       #e9edf2;
+    --dash-shadow-sm:    0 1px 2px rgba(0,0,0,0.03), 0 1px 2px rgba(0,0,0,0.05);
+    --dash-shadow-md:    0 4px 12px rgba(0,0,0,0.06);
+    --dash-text-head:    #0a0c1a;
+    --dash-text-body:    #1e293b;
+    --dash-text-sub:     #475569;
+    --dash-text-muted:   #94a3b8;
+    --dash-blue:         #3b82f6;
+    --dash-blue-light:   #eff6ff;
+    --dash-radius:       16px;
+    --dash-font:         'DM Sans', system-ui, sans-serif;
+
+    font-family: var(--dash-font);
+    background: var(--dash-bg);
+    min-height: 100vh;
+    padding: 0;
+}
+
+#mod-pmtros-tescxp .module-header { margin-bottom: 24px; }
+
+#mod-pmtros-tescxp .module-header-text h1 {
+    font-size: 24px; font-weight: 800; color: var(--dash-text-head); margin-bottom: 4px;
+}
+
+#mod-pmtros-tescxp .module-header-text p {
+    font-size: 13px; color: var(--dash-text-sub);
+}
+
+#mod-pmtros-tescxp .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+#mod-pmtros-tescxp .stat-card {
+    background: var(--dash-card);
+    border: 1px solid var(--dash-border);
+    border-radius: var(--dash-radius);
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: var(--dash-shadow-sm);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#mod-pmtros-tescxp .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--dash-shadow-md);
+}
+
+#mod-pmtros-tescxp .stat-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+#mod-pmtros-tescxp .stat-icon.blue   { background: var(--dash-blue-light);  color: var(--dash-blue); }
+#mod-pmtros-tescxp .stat-icon.green  { background: #ecfdf5; color: #059669; }
+#mod-pmtros-tescxp .stat-icon.yellow { background: #fffbeb; color: #f59e0b; }
+
+#mod-pmtros-tescxp .stat-label {
+    font-size: 12px; color: var(--dash-text-muted); font-weight: 500; margin-bottom: 2px;
+}
+
+#mod-pmtros-tescxp .stat-value {
+    font-size: 20px; font-weight: 800; color: var(--dash-text-head);
+}
+
+#mod-pmtros-tescxp .config-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 20px;
+    width: 100%;
+    align-items: stretch;
+}
+
+#mod-pmtros-tescxp .config-card {
+    background: var(--dash-card);
+    border: 1px solid var(--dash-border);
+    border-radius: var(--dash-radius);
+    box-shadow: var(--dash-shadow-sm);
+    padding: 26px 28px;
+}
+
+#mod-pmtros-tescxp .config-card.span-8 {
+    grid-column: span 8;
+    padding: 32px 36px;
+    display: flex;
+    flex-direction: column;
+}
+
+#mod-pmtros-tescxp .config-card.span-8 .week-strip {
+    flex: 1;
+    align-content: center;
+}
+
+#mod-pmtros-tescxp .config-card.span-8 h3 {
+    font-size: 17px;
+    margin-bottom: 10px;
+}
+
+#mod-pmtros-tescxp .config-card.span-8 h3 i {
+    width: 36px; height: 36px;
+    font-size: 15px;
+    border-radius: 11px;
+}
+
+#mod-pmtros-tescxp .config-card.span-8 .config-hint {
+    font-size: 13px;
+    margin-bottom: 28px;
+}
+
+#mod-pmtros-tescxp .config-side {
+    grid-column: span 4;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+#mod-pmtros-tescxp .config-card h3 {
+    font-size: 14px; font-weight: 700; color: var(--dash-text-head);
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 16px;
+}
+
+#mod-pmtros-tescxp .config-card h3 i {
+    color: var(--dash-blue);
+    background: var(--dash-blue-light);
+    width: 30px; height: 30px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+}
+
+#mod-pmtros-tescxp .config-hint {
+    font-size: 12px; color: var(--dash-text-muted); margin-bottom: 20px;
+}
+
+#mod-pmtros-tescxp .field-hint {
+    font-size: 11.5px; color: var(--dash-text-muted); margin-top: 6px;
+}
+
+/* ---- LÍNEA DE LA SEMANA (visualización de días de pago) ---- */
+#mod-pmtros-tescxp .week-strip {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    margin-bottom: 32px;
+}
+
+#mod-pmtros-tescxp .week-day {
+    border: 1.5px solid var(--dash-border);
+    border-radius: 14px;
+    padding: 22px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+#mod-pmtros-tescxp .week-day-letter {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: var(--dash-text-muted);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 17px;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+#mod-pmtros-tescxp .week-day-name {
+    font-size: 11.5px;
+    color: var(--dash-text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+#mod-pmtros-tescxp .week-day.active {
+    border-color: var(--dash-blue);
+    background: var(--dash-blue-light);
+}
+
+#mod-pmtros-tescxp .week-day.active .week-day-letter {
+    background: var(--dash-blue);
+    color: white;
+}
+
+#mod-pmtros-tescxp .week-day.active .week-day-name { color: var(--dash-blue); }
+
+#mod-pmtros-tescxp .config-card.span-8 .form-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+
+#mod-pmtros-tescxp .config-card.span-8 .form-label {
+    font-size: 13px;
+}
+
+#mod-pmtros-tescxp .config-card.span-8 .form-select {
+    padding: 12px 14px;
+    font-size: 14px;
+}
+
+#mod-pmtros-tescxp .config-actions {
+    display: flex; justify-content: flex-end; margin-top: 24px;
+}
+
+.btn-lg { padding: 13px 28px; font-size: 14px; }
+
+.form-select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 13.5px;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    color: #1e293b;
+    background: white;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+}
+
+.form-select:hover  { border-color: #cbd5e1; }
+.form-select:focus  { border-color: #3b82f6; }
+
+@media (max-width: 1100px) {
+    #mod-pmtros-tescxp .stats-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 1024px) {
+    #mod-pmtros-tescxp .config-card.span-8,
+    #mod-pmtros-tescxp .config-side { grid-column: span 12; }
+}
+
+@media (max-width: 768px) {
+    #mod-pmtros-tescxp { padding: 20px; }
+    #mod-pmtros-tescxp .stats-grid { grid-template-columns: 1fr; }
+    #mod-pmtros-tescxp .config-card { padding: 20px; }
+    #mod-pmtros-tescxp .form-grid-3 { grid-template-columns: 1fr; }
+    #mod-pmtros-tescxp .week-strip { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ============================================
+   BOTONES GENERALES (también usados en modales)
+   ============================================ */
+.btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: none; border-radius: 50px;
+    padding: 10px 20px;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+#mod-festivos .btn-primary,
+#mod-pmtros-tescxp .btn-primary,
+.modal-footer .btn-primary {
+    background: #3b82f6; color: white;
+}
+
+#mod-festivos .btn-primary:hover,
+#mod-pmtros-tescxp .btn-primary:hover,
+.modal-footer .btn-primary:hover { background: #2563eb; }
+
+#mod-festivos .btn-secondary,
+#mod-pmtros-tescxp .btn-secondary,
+.modal-footer .btn-secondary {
+    background: #f1f5f9; color: #475569;
+}
+
+#mod-festivos .btn-secondary:hover,
+#mod-pmtros-tescxp .btn-secondary:hover,
+.modal-footer .btn-secondary:hover { background: #e2e8f0; }
+
+/* ============================================
+   MODALES (estilos globales, no scoped)
+   ============================================ */
+.modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(15,23,42,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+}
+
+.modal-overlay.hidden { display: none; }
+
+.modal-box {
+    background: white;
+    border-radius: 18px;
+    width: 460px;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+    font-family: 'DM Sans', system-ui, sans-serif;
+}
+
+.modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px;
+    border-radius: 18px 18px 0 0;
+}
+
+.modal-header.green { background: #2d8653; color: white; }
+.modal-header.blue  { background: #3b82f6; color: white; }
+
+.modal-header h2 { font-size: 17px; font-weight: 700; margin-bottom: 2px; }
+.modal-header p  { font-size: 12px; opacity: 0.85; }
+
+.modal-close {
+    background: rgba(255,255,255,0.2);
+    border: none; color: white;
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.modal-close:hover { background: rgba(255,255,255,0.35); }
+
+.modal-body { padding: 20px 24px; }
+
+.modal-footer {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid #e9edf2;
+}
+
+/* ---- FORM ---- */
+.form-field { margin-bottom: 16px; }
+
+.form-label {
+    display: block;
+    font-size: 12.5px; font-weight: 600;
+    color: #334155; margin-bottom: 6px;
+}
+
+.required { color: #ef4444; margin-left: 2px; }
+
+.form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 13.5px;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    color: #1e293b;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.form-input:hover  { border-color: #cbd5e1; }
+.form-input:focus  { border-color: #3b82f6; }
+.form-input::placeholder { color: #b0b8c9; }
+
+.form-input:disabled { background: #f8fafc; color: #94a3b8; }
+
+.field-error {
+    display: block;
+    max-height: 0;
+    overflow: hidden;
+    font-size: 11.5px;
+    color: #ef4444;
+    margin-top: 4px;
+    transition: max-height 0.2s ease;
+}
+
+.field-error.visible { max-height: 3rem; }
+
+/* ---- TOAST ---- */
+#toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: #0f172a; color: white;
+    padding: 12px 20px; border-radius: 40px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 500;
+    z-index: 1100; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    animation: slideIn 0.3s ease;
+}
+
+#toast.hidden { display: none; }
+
+/* ---- ANIMACIONES ---- */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ---- RESPONSIVE ---- */
+@media (max-width: 900px) {
+    #mod-festivos { padding: 20px; }
+    #mod-festivos .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    #mod-festivos .filter-bar { flex-direction: column; align-items: stretch; }
+    #mod-festivos .filter-info { margin-left: 0; text-align: center; }
+}
+
+@media (max-width: 768px) {
+    #mod-festivos .stats-grid { grid-template-columns: 1fr; }
+    .modal-box { width: 95vw; max-width: 95vw; }
+}
