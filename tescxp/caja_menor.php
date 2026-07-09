@@ -193,6 +193,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        // ---------- CERRAR CAJA MENOR ----------
+        if (isset($_POST['btn_cerrar_caja'])) {
+            $id_caja_menor = (int)($_POST['hid_id_caja_menor'] ?? 0);
+
+            if ($id_caja_menor <= 0) {
+                throw new Exception('Caja no válida.');
+            }
+
+            $del_enc_caja_menor->execute([':wid_caja_menor' => $id_caja_menor]);
+
+            $respuesta['success'] = true;
+            $respuesta['message'] = 'Caja menor cerrada correctamente.';
+            echo json_encode($respuesta);
+            exit;
+        }
+
         // Si no se reconoce ninguna acción
         $respuesta['message'] = 'Acción no válida.';
         echo json_encode($respuesta);
@@ -332,13 +348,18 @@ ob_start();
                         <small style="color:#94a3b8;font-size:11px">#<?= $id_caja_esc ?> — <?= $pct_disp ?>% disponible</small>
                     </td>
                     <td><?= htmlspecialchars(date('d/m/Y', strtotime($c['fecha_apertura']))) ?></td>
-                    <td class="text-right">$<?= number_format((float)$c['monto_asignado'], 0, ',', '.') ?></td>
-                    <td class="text-right">$<?= number_format((float)$c['monto_disponible'], 0, ',', '.') ?></td>
+                    <td>$<?= number_format((float)$c['monto_asignado'], 0, ',', '.') ?></td>
+                    <td>$<?= number_format((float)$c['monto_disponible'], 0, ',', '.') ?></td>
                     <td class="text-center"><?= $badge ?></td>
                     <td class="text-center" onclick="event.stopPropagation()">
-                        <button class="btn-icon-sm edit" onclick='openEditModal(<?= json_encode($c) ?>)'>
+                        <button class="btn-icon-sm edit" onclick='openEditModal(<?= json_encode($c) ?>)' title="Editar nombre">
                             <i class="fas fa-edit"></i>
                         </button>
+                        <?php if ($activa): ?>
+                        <button class="btn-icon-sm close" onclick='cerrarCajaMenor(<?= json_encode($c) ?>)' title="Cerrar caja">
+                            <i class="fas fa-lock"></i>
+                        </button>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -456,6 +477,7 @@ ob_start();
             </div>
         </div>
         <div class="modal-footer">
+            <button class="btn btn-danger hidden" id="detail-btn-cerrar-caja"><i class="fas fa-lock"></i> Cerrar Caja</button>
             <button class="btn btn-secondary" id="close-detail-btn">Cerrar</button>
         </div>
     </div>

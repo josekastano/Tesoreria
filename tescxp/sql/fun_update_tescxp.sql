@@ -114,13 +114,15 @@ LANGUAGE PLPGSQL;
 -- NOTA: Al marcar un movimiento como Reembolsado (3), se devuelve (suma) val_movimiento
 --       al monto_disponible de la caja menor correspondiente.
 --------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------
+-- FUNCIÓN DE UPDATE DE DETALLE DE CAJA MENOR
+--------------------------------------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fun_update_det_caja_menor (wid_caja_menor      tab_det_caja_menor.id_caja_menor%TYPE,
                                                       wid_movimiento      tab_det_caja_menor.id_movimiento%TYPE,
                                                       wind_estado         tab_det_caja_menor.ind_estado%TYPE) RETURNS BOOLEAN AS
 $BODY$
 
 DECLARE wind_estado_actual  tab_det_caja_menor.ind_estado%TYPE;
-DECLARE wval_movimiento     tab_det_caja_menor.val_movimiento%TYPE;
 
 BEGIN
 
@@ -139,8 +141,8 @@ BEGIN
         RAISE EXCEPTION 'El indicador de estado no puede ser nulo.';
     END IF;
 
--- VALIDAR QUE EL MOVIMIENTO EXISTA Y OBTENER SU ESTADO ACTUAL Y VALOR
-    SELECT ind_estado, val_movimiento INTO wind_estado_actual, wval_movimiento
+-- VALIDAR QUE EL MOVIMIENTO EXISTA Y OBTENER SU ESTADO ACTUAL
+    SELECT ind_estado INTO wind_estado_actual
     FROM   tab_det_caja_menor
     WHERE  id_caja_menor = wid_caja_menor AND id_movimiento = wid_movimiento;
 
@@ -163,17 +165,13 @@ BEGIN
         RAISE EXCEPTION 'No se puede regresar el movimiento del estado % al estado %.', wind_estado_actual, wind_estado;
     END IF;
 
--- SI TODO VA BIEN, SE ACTUALIZA EN tab_det_caja_menor
+-- SE ACTUALIZA EL ESTADO EN tab_det_caja_menor
+-- (el ajuste de monto_disponible lo hace automáticamente el trigger
+--  trg_actualizar_disponible_caja_menor al detectar el cambio de ind_estado,
+--  ya no se hace manualmente aquí)
     UPDATE tab_det_caja_menor
     SET    ind_estado    = wind_estado
     WHERE  id_caja_menor = wid_caja_menor AND id_movimiento = wid_movimiento;
-
--- SI EL NUEVO ESTADO ES REEMBOLSADO (3), SE DEVUELVE EL VALOR AL DISPONIBLE DE LA CAJA
-    IF wind_estado = 3 THEN
-        UPDATE tab_enc_caja_menor
-        SET    monto_disponible = monto_disponible + wval_movimiento
-        WHERE  id_caja_menor    = wid_caja_menor;
-    END IF;
 
     RETURN TRUE;
 
@@ -183,6 +181,7 @@ EXCEPTION
 END;
 $BODY$
 LANGUAGE PLPGSQL;
+
 
 --------------------------------------------------------------------------------------------------------------------------------------
 -- FUNCIÓN DE UPDATE DE PARÁMETROS DE TESORERÍA Y CXP

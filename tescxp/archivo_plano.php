@@ -51,83 +51,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $respuesta = ['success' => false, 'message' => '', 'errors' => []];
 
     try {
-        // ---------- DESCARGAR ARCHIVO PLANO (CSV) ----------
-        // Se responde con el contenido del CSV codificado en base64 dentro del
-        // JSON (no como archivo binario directo), porque este módulo siempre
-        // pasa por menu_principal.php y no por una URL directa al .php — así
-        // evitamos depender del enrutamiento del sistema. El JS decodifica el
-        // base64 y dispara la descarga en el navegador con un Blob.
-        if (isset($_POST['btn_descargar'])) {
-            $id_archivo_plano = (int)($_POST['hid_id_archivo_plano'] ?? 0);
-            if ($id_archivo_plano <= 0) {
-                throw new Exception('Archivo plano no válido.');
-            }
-
-            // Traer el encabezado para el nombre del archivo
-            $list_enc_archivo_plano->execute();
-            $todos = $list_enc_archivo_plano->fetchAll(PDO::FETCH_ASSOC);
-            $encabezado = null;
-            foreach ($todos as $a) {
-                if ((int)$a['id_archivo_plano'] === $id_archivo_plano) {
-                    $encabezado = $a;
-                    break;
-                }
-            }
-            if (!$encabezado) {
-                throw new Exception('El archivo plano solicitado no existe.');
-            }
-
-            $list_det_archivo_plano->execute([':id_archivo_plano' => $id_archivo_plano]);
-            $detalle = $list_det_archivo_plano->fetchAll(PDO::FETCH_ASSOC);
-
-            if (empty($detalle)) {
-                throw new Exception('Este archivo plano no tiene pagos registrados.');
-            }
-
-            // Marcar como generado (no pisa fec_generacion si ya tenía una)
-            $upd_generar_archivo_plano->execute([':wid_archivo_plano' => $id_archivo_plano]);
-
-            // Construir el CSV en memoria
-            $buffer = fopen('php://temp', 'r+');
-            fwrite($buffer, "\xEF\xBB\xBF"); // BOM UTF-8 (tildes/ñ correctas en Excel)
-
-            fputcsv($buffer, [
-                'id_factura',
-                'id_cuota',
-                'nom_tercero',
-                'cta_proveedor',
-                'tipo_cuenta',
-                'valor_a_pagar',
-            ]);
-
-            foreach ($detalle as $fila) {
-                $tipo_cuenta = ($fila['ind_tipocuenta'] === 't' || $fila['ind_tipocuenta'] === true)
-                    ? 'Corriente'
-                    : 'Ahorros';
-
-                fputcsv($buffer, [
-                    $fila['id_factura'],
-                    $fila['id_cuota'],
-                    $fila['nom_tercero'],
-                    $fila['cta_proveedor'],
-                    $tipo_cuenta,
-                    $fila['val_a_pagar'],
-                ]);
-            }
-
-            rewind($buffer);
-            $csv_contenido = stream_get_contents($buffer);
-            fclose($buffer);
-
-            $nombre_base = preg_replace('/[^A-Za-z0-9_\-]/', '_', $encabezado['nom_archivo']);
-
-            $respuesta['success']       = true;
-            $respuesta['nom_descarga']  = $nombre_base . '.csv';
-            $respuesta['csv_base64']    = base64_encode($csv_contenido);
-            echo json_encode($respuesta);
-            exit;
-        }
-
         // ---------- OBTENER CUOTAS+CUENTAS DE UN CRONOGRAMA (para armar el form dinámico) ----------
         if (isset($_POST['btn_cargar_crono'])) {
             $id_cronograma = (int)($_POST['hid_id_cronograma'] ?? 0);
@@ -191,12 +114,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Decodificar filas: "id_factura:id_cuota:id_proveedor:cta_proveedor:tipocuenta,..."
+            // Se deduplica por (id_factura, id_cuota) como defensa adicional: un
+            // proveedor con varias cuentas registradas puede hacer que el front
+            // envíe la misma cuota más de una vez, y eso rompería el insert de
+            // detalle (choca contra la PK compuesta del mismo archivo plano).
             $filas = [];
+            $cuotas_vistas = [];
             if (!empty($cuotas_raw)) {
                 foreach (explode(',', $cuotas_raw) as $fila) {
                     $partes = explode(':', $fila);
                     if (count($partes) === 5) {
                         [$idf, $idc, $idprov, $ctaprov, $tipo] = $partes;
+                        $clave_cuota = $idf . ':' . $idc;
+                        if (isset($cuotas_vistas[$clave_cuota])) {
+                            continue;
+                        }
+                        $cuotas_vistas[$clave_cuota] = true;
                         $filas[] = [
                             'id_factura'     => (int)$idf,
                             'id_cuota'       => (int)$idc,

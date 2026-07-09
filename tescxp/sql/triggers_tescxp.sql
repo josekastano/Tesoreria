@@ -21,14 +21,12 @@ FOR EACH ROW EXECUTE FUNCTION fun_monto_disponible_caja_menor();
 
 
 -- 1.2 Al cerrar la caja (ind_estado_caja_m: TRUE -> FALSE), asignar fecha_cierre
---     y al reabrirla (FALSE -> TRUE), limpiar fecha_cierre.
+
 CREATE OR REPLACE FUNCTION fun_fecha_cierre_caja_menor() RETURNS TRIGGER AS 
 $BODY$
 BEGIN
     IF OLD.ind_estado_caja_m = TRUE AND NEW.ind_estado_caja_m = FALSE THEN
         NEW.fecha_cierre := CURRENT_DATE;
-    ELSIF OLD.ind_estado_caja_m = FALSE AND NEW.ind_estado_caja_m = TRUE THEN
-        NEW.fecha_cierre := NULL;
     END IF;
     RETURN NEW;
 END;
@@ -58,7 +56,7 @@ FOR EACH ROW EXECUTE FUNCTION fun_fecha_movimiento_caja_menor();
 
 
 -- 2.2 Descontar monto_disponible SOLO cuando el movimiento pasa a Aprobado (1 -> 2)
---     y reponerlo si pasa a Reembolsado (2 -> 3) o si se revierte (2 -> 1).
+--     y reponerlo si pasa a Reembolsado (2 -> 3).
 CREATE OR REPLACE FUNCTION fun_actualizar_disponible_caja_menor() RETURNS TRIGGER AS
 $BODY$
 BEGIN
@@ -73,14 +71,11 @@ BEGIN
         UPDATE tab_enc_caja_menor
         SET monto_disponible = monto_disponible + NEW.val_movimiento
         WHERE id_caja_menor = NEW.id_caja_menor;
-
-    -- Se revierte una aprobación de vuelta a Pendiente: se repone también
-    ELSIF OLD.ind_estado = 2 AND NEW.ind_estado = 1 THEN
-        UPDATE tab_enc_caja_menor
-        SET monto_disponible = monto_disponible + NEW.val_movimiento
-        WHERE id_caja_menor = NEW.id_caja_menor;
     END IF;
-
+-----------------------------------------------------------------------------
+	-- PENDIENTE
+	-- AGREGAR EL VALOR MÍNIMO DE REEMBOLSO DE PARÁMETROS DE TESORERÍA
+-----------------------------------------------------------------------------	
     RETURN NEW;
 END;
 $BODY$

@@ -255,6 +255,7 @@ window.openEditModal = openEditModal;
 // 5. MODAL: DETALLE DE CRONOGRAMA
 // ============================================================
 function openDetailModal(crono) {
+    window._cronoDetalleActual = crono;
     const pagado = crono.ind_estado === 't' || crono.ind_estado === true;
 
     setText('detail-title', crono.nom_cronograma);
@@ -290,8 +291,24 @@ function openDetailModal(crono) {
                         <span class="cuota-num">${escapeHtml(d.nom_tercero)}<br><small style="color:#94a3b8;font-weight:400">Factura #${d.id_factura}, Cuota ${d.id_cuota}</small></span>
                         <span class="cuota-fecha">${formatDate(d.fec_vencimiento)}</span>
                         <span class="cuota-valor">${formatCurrency(d.val_a_pagar)}</span>
+                        ${!pagado ? `<button class="btn-icon-sm reject btn-del-detalle"
+                            data-cronograma="${crono.id_cronograma}"
+                            data-factura="${d.id_factura}"
+                            data-cuota="${d.id_cuota}"
+                            title="Eliminar cuota del cronograma">
+                            <i class="fas fa-trash"></i>
+                        </button>` : '<span></span>'}
                     </div>
                 `).join('');
+
+                // Conectar los botones de eliminar recién creados
+                detalleList.querySelectorAll('.btn-del-detalle').forEach(btn => {
+                    btn.addEventListener('click', () => eliminarDetalleCronograma(
+                        btn.dataset.cronograma,
+                        btn.dataset.factura,
+                        btn.dataset.cuota
+                    ));
+                });
             } else {
                 detalleList.innerHTML = '<p style="font-size:12px;color:#94a3b8;text-align:center;padding:12px">No se encontraron cuotas para este cronograma.</p>';
             }
@@ -306,6 +323,39 @@ function closeDetailModal() {
 }
 
 window.openDetailModal = openDetailModal;
+
+// ============================================================
+// 5.1 ELIMINAR LÍNEA DE DETALLE DEL CRONOGRAMA
+// ============================================================
+function eliminarDetalleCronograma(idCronograma, idFactura, idCuota) {
+    if (!confirm(`¿Eliminar la Cuota ${idCuota} de la Factura #${idFactura} del cronograma?\nEsta acción no se puede deshacer.`)) return;
+
+    const formData = new FormData();
+    formData.append('btn_eliminar_detalle', '1');
+    formData.append('hid_det_id_cronograma', idCronograma);
+    formData.append('hid_det_id_factura',    idFactura);
+    formData.append('hid_det_id_cuota',      idCuota);
+
+    fetch(window.location.href, { method: 'POST', body: formData })
+        .then(res => res.text())
+        .then(text => {
+            let result;
+            try { result = JSON.parse(text); } catch (e) { result = { success: false, message: 'Respuesta inválida' }; }
+
+            if (result.success) {
+                showToast(result.message, 'success');
+                // Recargar el detalle sin cerrar el modal
+                const cronoActual = window._cronoDetalleActual;
+                if (cronoActual) {
+                    // Actualizar el total en el header del modal (el trigger lo recalculó en BD)
+                    openDetailModal(cronoActual);
+                }
+            } else {
+                showToast(result.message || 'Error al eliminar la cuota', 'error');
+            }
+        })
+        .catch(() => showToast('Error de conexión', 'error'));
+}
 
 // ============================================================
 // 6. ELIMINAR CRONOGRAMA (función global)

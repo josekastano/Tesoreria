@@ -112,9 +112,9 @@ try {
         )"
     );
 
-    // ---- INSERT — fun_insert_det_caja_menor (3 params) ----
-    // id_caja_menor, concepto, val_movimiento
-    // (id_movimiento se autogenera; un trigger descuenta monto_disponible
+    // ---- INSERT — fun_insert_det_caja_menor (4 params) ----
+    // id_caja_menor, concepto, val_movimiento, fecha_movimiento
+    // (id_movimiento se autogenera; la función descuenta monto_disponible
     //  de la caja al insertar el movimiento, que queda en estado Pendiente)
     $ins_det_caja_menor = $pdo->prepare(
         "SELECT fun_insert_det_caja_menor(
@@ -134,6 +134,16 @@ try {
             :wid_caja_menor,
             :wid_movimiento,
             :wind_estado
+        )"
+    );
+
+    // ---- DELETE (CIERRE LÓGICO) — fun_delete_enc_caja_menor (1 param) ----
+    // id_caja_menor
+    // (Fija fecha_cierre = CURRENT_DATE e ind_estado_caja_m = FALSE. Falla si
+    //  quedan movimientos en estado Pendiente o Aprobado sin reembolsar.)
+    $del_enc_caja_menor = $pdo->prepare(
+        "SELECT fun_delete_enc_caja_menor(
+            :wid_caja_menor
         )"
     );
 
@@ -458,6 +468,19 @@ try {
     // Borrado lógico (ind_borrado = TRUE)
     $del_enc_cronopagos = $pdo->prepare(
         "SELECT fun_delete_enc_cronopagos(:wid_cronograma)"
+    );
+
+    // ---- DELETE — fun_delete_det_cronopagos (3 params) ----
+    // id_cronograma, id_factura, id_cuota
+    // Borrado FÍSICO de una línea de detalle. Solo si el cronograma está
+    // activo, pendiente (no pagado) y sin archivos planos generados.
+    // La función recalcula automáticamente total_a_pagar en el encabezado.
+    $del_det_cronopagos = $pdo->prepare(
+        "SELECT fun_delete_det_cronopagos(
+            :wid_cronograma,
+            :wid_factura,
+            :wid_cuota
+        )"
     );
 
     // ---- CRONOGRAMAS PENDIENTES (disponibles para generar archivo plano) ----

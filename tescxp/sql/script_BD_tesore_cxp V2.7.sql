@@ -21,7 +21,7 @@ DROP TABLE IF EXISTS tab_festivos;
 CREATE TABLE tab_festivos
 (
     id_festivo         DECIMAL(4,0)         NOT NULL CHECK((id_festivo >= 0 AND id_festivo <= 9999)),                                                   -- Identificador del día festivo
-    fecha              DATE                 NOT NULL CHECK(fecha >= CURRENT_DATE) DEFAULT CURRENT_DATE,                                                 -- Fecha de el día festivo
+    fecha              DATE                 NOT NULL DEFAULT CURRENT_DATE,                                                 -- Fecha de el día festivo
     nom_festivo        VARCHAR(50)          NOT NULL CHECK((LENGTH(nom_festivo) >= 3) AND (LENGTH(nom_festivo) <= 50)) DEFAULT 'Día sin especificar',   -- Nombre descriptivo
     ind_borrado        BOOLEAN              NOT NULL DEFAULT FALSE,                   										                            -- TRUE: Borrado lógico (Inactivo) / FALSE: Activo
      
@@ -134,7 +134,7 @@ CREATE TABLE tab_cuentasxpagar
     id_factura          DECIMAL(8,0)        NOT NULL CHECK((id_factura) >= 1 AND (id_factura) <= 99999999),                                     -- Identificador de la factura
     id_proveedor        VARCHAR   			NOT NULL CHECK(LENGTH(id_proveedor) >= 6 AND (LENGTH(id_proveedor) <= 10)) DEFAULT '222222222222',  -- Identificador (NIT) del proveedor
     fec_emision         DATE                NOT NULL DEFAULT CURRENT_DATE,                                                                      -- Fecha de emisión de la factura
-    fec_vencimiento     DATE                NOT NULL CHECK (fec_vencimiento > fec_emision),                                                     -- FECHA DE PAGO FACTURA (FECHA EMISIÓN + DIAS DE PAGO)
+    fec_vencimiento     DATE                NOT NULL CHECK (fec_vencimiento >= fec_emision),                                                    -- FECHA DE PAGO FACTURA (FECHA EMISIÓN + DIAS DE PAGO)
     val_factura         DECIMAL(10,0)       NOT NULL CHECK((val_factura) >= 0 AND (val_factura) <= 9999999999),                                 -- Monto total de la factura
     val_saldo           DECIMAL(10,0)       NOT NULL CHECK((val_saldo >= 0) AND (val_saldo <= 9999999999)),                                     -- Valor restante para terminar de pagar la factura
     num_cuotas          DECIMAL(2,0)        NOT NULL CHECK((num_cuotas) >= 1 AND (num_cuotas) <= 99),                                           -- Número de cuotas totales en las que se acordó la factura
@@ -183,7 +183,7 @@ CREATE TABLE tab_enc_cronopagos
 (
     id_cronograma       DECIMAL(10,0) 		NOT NULL CHECK((id_cronograma) >= 0 AND (id_cronograma) <= 9999999999),                                         -- Identificador del cronograma
     nom_cronograma      VARCHAR(30)         NOT NULL CHECK(LENGTH(nom_cronograma) >= 3 AND (LENGTH(nom_cronograma) <= 30)) DEFAULT 'Cronograma de Pago',    -- Nombre del archivo plano
-    fec_programacion    DATE                NOT NULL CHECK(fec_programacion  >= CURRENT_DATE),                                                              -- Fecha para la cual se planificó pagar dicho cronograma
+    fec_programacion    DATE                NOT NULL DEFAULT CURRENT_DATE,                                                                                  -- Fecha para la cual se planificó pagar dicho cronograma
     total_a_pagar       DECIMAL(10,0)       NOT NULL CHECK((total_a_pagar) >= 0 AND (total_a_pagar) <= 9999999999),                                         -- Monto total a pagar por ese cronograma
     ind_estado          BOOLEAN             NOT NULL DEFAULT FALSE,                                                                                         -- TRUE = Pagado / FALSE = Pendiente
 	ind_borrado         BOOLEAN             NOT NULL DEFAULT FALSE,                                                                                         -- TRUE: Borrado lógico (Inactivo) / FALSE: Activo

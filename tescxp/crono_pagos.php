@@ -169,6 +169,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        // ---------- ELIMINAR LÍNEA DE DETALLE DEL CRONOGRAMA ----------
+        if (isset($_POST['btn_eliminar_detalle'])) {
+            $id_cronograma = (int)($_POST['hid_det_id_cronograma'] ?? 0);
+            $id_factura    = (int)($_POST['hid_det_id_factura']    ?? 0);
+            $id_cuota      = (int)($_POST['hid_det_id_cuota']      ?? 0);
+
+            if ($id_cronograma <= 0 || $id_factura <= 0 || $id_cuota <= 0) {
+                throw new Exception('Datos de la cuota no válidos.');
+            }
+
+            $del_det_cronopagos->execute([
+                ':wid_cronograma' => $id_cronograma,
+                ':wid_factura'    => $id_factura,
+                ':wid_cuota'      => $id_cuota,
+            ]);
+
+            $respuesta['success'] = true;
+            $respuesta['message'] = 'Cuota eliminada del cronograma correctamente.';
+            echo json_encode($respuesta);
+            exit;
+        }
+
         // Si no se reconoce ninguna acción
         $respuesta['message'] = 'Acción no válida.';
         echo json_encode($respuesta);

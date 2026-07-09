@@ -124,6 +124,18 @@ function openDetailModal(caja) {
     setVal('mov-valor', '');
     setVal('mov-fecha', new Date().toISOString().slice(0, 10));
 
+    // Botón "Cerrar Caja": solo visible/activo si la caja sigue abierta
+    const btnCerrarCaja = document.getElementById('detail-btn-cerrar-caja');
+    if (btnCerrarCaja) {
+        if (activa) {
+            btnCerrarCaja.classList.remove('hidden');
+            btnCerrarCaja.onclick = () => cerrarCajaMenor(caja);
+        } else {
+            btnCerrarCaja.classList.add('hidden');
+            btnCerrarCaja.onclick = null;
+        }
+    }
+
     show('modal-detail');
     loadMovimientos(caja.id_caja_menor);
 }
@@ -216,6 +228,40 @@ async function onCambiarEstadoMovimiento(e) {
         showToast('Error de conexión', 'error');
     }
 }
+
+// ============================================================
+// 4b. CERRAR CAJA MENOR
+// ============================================================
+async function cerrarCajaMenor(caja) {
+    const confirmado = confirm(
+        `¿Confirma que desea cerrar la caja "${caja.nom_caja_menor}"?\n\n` +
+        `La caja pasará a estado Cerrada y esta acción no se puede deshacer desde aquí.`
+    );
+    if (!confirmado) return;
+
+    const formData = new FormData();
+    formData.append('btn_cerrar_caja', '1');
+    formData.append('hid_id_caja_menor', caja.id_caja_menor);
+
+    try {
+        const response = await fetch(window.location.href, { method: 'POST', body: formData });
+        const text = await response.text();
+        let result;
+        try { result = JSON.parse(text); } catch (e) { result = { success: false, message: 'Respuesta inválida del servidor' }; }
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            closeDetailModal();
+            location.reload();
+        } else {
+            showToast(result.message || 'Error al cerrar la caja', 'error');
+        }
+    } catch (err) {
+        showToast('Error de conexión', 'error');
+    }
+}
+
+window.cerrarCajaMenor = cerrarCajaMenor;
 
 // ============================================================
 // 5. FILTROS

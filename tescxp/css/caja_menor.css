@@ -230,6 +230,9 @@
 .text-center { text-align: center; }
 .text-right  { text-align: right; }
 
+/* Utilidad genérica para ocultar cualquier elemento (botones, divs, etc.) */
+.hidden { display: none !important; }
+
 /* ---- BADGES ---- */
 .app-view .badge {
     display: inline-flex; align-items: center; gap: 5px;
@@ -267,6 +270,7 @@
 .app-view .btn-icon-sm.view   { background: var(--dash-blue-light);  color: var(--dash-blue); }
 .app-view .btn-icon-sm.edit   { background: var(--dash-amber-light); color: var(--dash-amber); }
 .app-view .btn-icon-sm.reject { background: var(--dash-rose-light);  color: var(--dash-rose); }
+.app-view .btn-icon-sm.close  { background: var(--dash-red-light);   color: var(--dash-red); }
 .app-view .btn-icon-sm:hover  { transform: translateY(-1px); filter: brightness(0.95); }
 
 /* ---- ESTADO VACÍO ---- */
@@ -759,6 +763,14 @@
 
 .app-view .btn-secondary:hover,
 .modal-footer .btn-secondary:hover { background: #e2e8f0; }
+
+.app-view .btn-danger,
+.modal-footer .btn-danger {
+    background: var(--dash-red, #ef4444); color: white;
+}
+
+.app-view .btn-danger:hover,
+.modal-footer .btn-danger:hover { background: #dc2626; }
 
 /* ============================================
    MODALES (estilos globales, no scoped)

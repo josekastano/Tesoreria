@@ -192,10 +192,22 @@ function buildFilasArchivoPayload() {
         }
     });
 
-    const filasPayload = filasCronogramaActual.map(f => {
+    // IMPORTANTE: filasCronogramaActual trae una fila por cada combinación
+    // cuota x cuenta_bancaria_del_proveedor. Si un proveedor tiene más de una
+    // cuenta registrada en tab_bancoxprov, la MISMA cuota (id_factura+id_cuota)
+    // aparece repetida en el arreglo. Hay que deduplicar por cuota aquí, o se
+    // termina mandando la misma fila dos veces en el mismo payload y el backend
+    // la intenta insertar dos veces en el mismo archivo plano.
+    const cuotasVistas = new Set();
+    const filasPayload = [];
+    filasCronogramaActual.forEach(f => {
+        const claveCuota = `${f.id_factura}:${f.id_cuota}`;
+        if (cuotasVistas.has(claveCuota)) return;
+        cuotasVistas.add(claveCuota);
+
         const cuentaElegida = cuentaPorProveedorSelect[f.id_proveedor] || cuentaUnicaPorProveedor[f.id_proveedor];
         const [cta, tipo] = cuentaElegida.split(':');
-        return `${f.id_factura}:${f.id_cuota}:${f.id_proveedor}:${cta}:${tipo}`;
+        filasPayload.push(`${f.id_factura}:${f.id_cuota}:${f.id_proveedor}:${cta}:${tipo}`);
     });
 
     setVal('hid-filas-archivo', filasPayload.join(','));
@@ -309,55 +321,9 @@ window.openDetailModal = openDetailModal;
 // ============================================================
 // 5.1 DESCARGA DEL ARCHIVO PLANO (CSV)
 // ============================================================
-// Se pide por POST (igual que el resto del módulo, que siempre pasa por
-// menu_principal.php) en vez de navegar a una URL directa al .php, porque
-// ese archivo no es accesible directamente fuera del router del sistema.
-// El servidor devuelve el CSV codificado en base64 dentro del JSON; aquí
-// lo decodificamos y disparamos la descarga con un Blob + enlace temporal.
+// Pendiente de implementar. Por ahora solo se avisa al usuario.
 window.descargarArchivoPlano = function(id) {
-    if (!id) {
-        showToast('Archivo plano no válido.', 'error');
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('btn_descargar', '1');
-    formData.append('hid_id_archivo_plano', id);
-
-    fetch(window.location.href, { method: 'POST', body: formData })
-        .then(res => res.text())
-        .then(text => {
-            let result;
-            try { result = JSON.parse(text); } catch (e) { result = { success: false, message: 'Respuesta inválida del servidor' }; }
-
-            if (!result.success || !result.csv_base64) {
-                showToast(result.message || 'No se pudo generar el archivo.', 'error');
-                return;
-            }
-
-            // Decodificar base64 -> bytes -> Blob -> descarga
-            const binario = atob(result.csv_base64);
-            const bytes = new Uint8Array(binario.length);
-            for (let i = 0; i < binario.length; i++) {
-                bytes[i] = binario.charCodeAt(i);
-            }
-            const blob = new Blob([bytes], { type: 'text/csv;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-
-            const enlace = document.createElement('a');
-            enlace.href = url;
-            enlace.download = result.nom_descarga || 'archivo_plano.csv';
-            document.body.appendChild(enlace);
-            enlace.click();
-            document.body.removeChild(enlace);
-            URL.revokeObjectURL(url);
-
-            showToast('Archivo descargado correctamente.', 'success');
-
-            // Refrescar para que el badge "Por generar" -> "Generado" se actualice
-            setTimeout(() => location.reload(), 1200);
-        })
-        .catch(() => showToast('Error de conexión al descargar.', 'error'));
+    showToast('La descarga del archivo plano se implementará próximamente.');
 };
 
 // ============================================================
@@ -437,6 +403,10 @@ function initArchivoModule() {
 
     // ---------- SUBMIT: NUEVO ARCHIVO PLANO ----------
     document.getElementById('new-btn-save')?.addEventListener('click', async function() {
+        const btn = this;
+        if (btn.disabled) return; // evita doble envío por doble clic
+        btn.disabled = true;
+
         const form = document.getElementById('new-archivo-form');
         clearAllFieldErrors('new');
         buildFilasArchivoPayload();
@@ -459,6 +429,8 @@ function initArchivoModule() {
             }
         } catch (err) {
             showToast('Error de conexión', 'error');
+        } finally {
+            btn.disabled = false;
         }
     });
 

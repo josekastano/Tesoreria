@@ -30,6 +30,59 @@ $BODY$
 LANGUAGE PLPGSQL;
 
 --------------------------------------------------------------------------------------------------------------------------------------
+-- FUNCIÓN DE CIERRE DE ENCABEZADO DE CAJA MENOR 
+--------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------
+-- FUNCIÓN DE CIERRE (DELETE LÓGICO) DE ENCABEZADO DE CAJA MENOR
+-- NOTA: No se elimina físicamente el registro. Se marca la caja como cerrada
+--       (fecha_cierre = CURRENT_DATE, ind_estado_caja_m = FALSE). Solo se
+--       permite cerrar una caja que no tenga movimientos sin resolver, es
+--       decir, movimientos en estado Pendiente (1) o Aprobado (2) que aún
+--       no hayan sido Reembolsados (3) a la caja.
+--------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fun_delete_enc_caja_menor (wid_caja_menor      tab_enc_caja_menor.id_caja_menor%TYPE) RETURNS BOOLEAN AS
+$BODY$
+
+DECLARE wmovs_sin_resolver  INTEGER;
+
+BEGIN
+
+-- VALIDAR QUE EL ID DE LA CAJA MENOR NO SEA NULO
+    IF wid_caja_menor IS NULL THEN
+        RAISE EXCEPTION 'El ID de la caja menor no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE LA CAJA MENOR EXISTA, ESTÉ ACTIVA Y NO ESTÉ CERRADA
+    IF NOT EXISTS (SELECT 1 FROM tab_enc_caja_menor WHERE id_caja_menor = wid_caja_menor AND ind_estado_caja_m = TRUE) THEN
+        RAISE EXCEPTION 'La caja menor % no existe, está inactiva o ya fue cerrada.', wid_caja_menor;
+    END IF;
+
+-- VALIDAR QUE NO EXISTAN MOVIMIENTOS SIN RESOLVER (PENDIENTES O APROBADOS, AÚN NO REEMBOLSADOS)
+    SELECT COUNT(*) INTO wmovs_sin_resolver
+    FROM   tab_det_caja_menor
+    WHERE  id_caja_menor = wid_caja_menor AND ind_estado IN (1, 2);
+
+    IF wmovs_sin_resolver > 0 THEN
+        RAISE EXCEPTION 'La caja menor % tiene % movimiento(s) sin reembolsar. Debe reembolsarlos antes de cerrar la caja.', wid_caja_menor, wmovs_sin_resolver;
+    END IF;
+
+-- SI TODO VA BIEN, SE CIERRA LA CAJA EN tab_enc_caja_menor
+    UPDATE tab_enc_caja_menor
+    SET    fecha_cierre      = CURRENT_DATE,
+           ind_estado_caja_m = FALSE
+    WHERE  id_caja_menor     = wid_caja_menor;
+
+    RETURN TRUE;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'ERROR: %', public.fun_mensaje_error(SQLSTATE, SQLERRM);
+END;
+$BODY$
+LANGUAGE PLPGSQL;
+
+
+--------------------------------------------------------------------------------------------------------------------------------------
 -- FUNCIÓN DE DELETE LÓGICO DE PARÁMETROS DE TESORERÍA Y CXP
 -- NOTA: No se permite borrar si la empresa todavía tiene cuentas activas registradas
 --       en tab_ctas_empresa (FK directa), ya que estas dependen de los parámetros de la empresa.
@@ -196,6 +249,66 @@ BEGIN
     UPDATE tab_enc_cronopagos
     SET    ind_borrado    = TRUE
     WHERE  id_cronograma  = wid_cronograma;
+
+    RETURN TRUE;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'ERROR: %', public.fun_mensaje_error(SQLSTATE, SQLERRM);
+END;
+$BODY$
+LANGUAGE PLPGSQL;
+
+--------------------------------------------------------------------------------------------------------------------------------------
+-- FUNCIÓN DE DELETE FÍSICO DE UNA LÍNEA DE DETALLE DE CRONOGRAMA DE PAGOS
+-- NOTA: tab_det_cronopagos NO tiene ind_borrado, por lo que el borrado es FÍSICO (DELETE).
+--       Solo se permite borrar detalle de un cronograma ACTIVO, que esté PENDIENTE (no pagado)
+--       y que no tenga archivos planos GENERADOS. Tras borrar la línea se RECALCULA el
+--       total_a_pagar del encabezado con el detalle restante.
+--------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fun_delete_det_cronopagos (wid_cronograma  tab_det_cronopagos.id_cronograma%TYPE,
+                                                      wid_factura     tab_det_cronopagos.id_factura%TYPE,
+                                                      wid_cuota       tab_det_cronopagos.id_cuota%TYPE) RETURNS BOOLEAN AS
+$BODY$
+BEGIN
+
+-- VALIDAR QUE LOS PARÁMETROS NO SEAN NULOS
+    IF wid_cronograma IS NULL OR wid_factura IS NULL OR wid_cuota IS NULL THEN
+        RAISE EXCEPTION 'El ID del cronograma, la factura y la cuota no pueden ser nulos.';
+    END IF;
+
+-- VALIDAR QUE EL CRONOGRAMA EXISTA Y ESTÉ ACTIVO
+    IF NOT EXISTS (SELECT 1 FROM tab_enc_cronopagos WHERE id_cronograma = wid_cronograma AND ind_borrado = FALSE) THEN
+        RAISE EXCEPTION 'El cronograma % no existe o se encuentra inactivo.', wid_cronograma;
+    END IF;
+
+-- VALIDAR QUE EL CRONOGRAMA NO ESTÉ YA PAGADO
+    IF EXISTS (SELECT 1 FROM tab_enc_cronopagos WHERE id_cronograma = wid_cronograma AND ind_estado = TRUE) THEN
+        RAISE EXCEPTION 'El cronograma % ya se encuentra pagado y su detalle no puede ser modificado.', wid_cronograma;
+    END IF;
+
+-- VALIDAR QUE EL CRONOGRAMA NO TENGA ARCHIVOS PLANOS GENERADOS
+    IF EXISTS (SELECT 1 FROM tab_enc_archivo_plano WHERE id_cronograma = wid_cronograma AND ind_generado = TRUE) THEN
+        RAISE EXCEPTION 'El cronograma % tiene archivos planos generados y su detalle no puede ser modificado.', wid_cronograma;
+    END IF;
+
+-- VALIDAR QUE LA LÍNEA DE DETALLE EXISTA
+    IF NOT EXISTS (SELECT 1 FROM tab_det_cronopagos WHERE id_cronograma = wid_cronograma AND id_factura = wid_factura AND id_cuota = wid_cuota) THEN
+        RAISE EXCEPTION 'La cuota % de la factura % no existe en el detalle del cronograma %.', wid_cuota, wid_factura, wid_cronograma;
+    END IF;
+
+-- SI TODO VA BIEN, SE BORRA FÍSICAMENTE LA LÍNEA DE DETALLE
+    DELETE FROM tab_det_cronopagos
+    WHERE  id_cronograma = wid_cronograma
+    AND    id_factura    = wid_factura
+    AND    id_cuota      = wid_cuota;
+
+-- SE RECALCULA EL TOTAL A PAGAR DEL ENCABEZADO CON EL DETALLE RESTANTE
+    UPDATE tab_enc_cronopagos e
+    SET    total_a_pagar = COALESCE((SELECT SUM(d.val_a_pagar)
+                                     FROM   tab_det_cronopagos d
+                                     WHERE  d.id_cronograma = e.id_cronograma), 0)
+    WHERE  e.id_cronograma = wid_cronograma;
 
     RETURN TRUE;
 
