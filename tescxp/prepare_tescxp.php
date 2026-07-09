@@ -609,64 +609,6 @@ try {
           WHERE id_archivo_plano = :wid_archivo_plano"
     );
 
-    // =========================================================================
-    // 9. DASHBOARD — CONSULTAS DE APOYO (KPIs, alertas, gráficos)
-    // =========================================================================
-
-    // ---- CUOTAS PENDIENTES AGRUPADAS POR SEMANA (próximos 8 semanas) ----
-    // Para el gráfico de barras de flujo de caja proyectado.
-    $list_cuotas_por_semana = $pdo->prepare(
-        "SELECT  DATE_TRUNC('week', c.fec_vencimiento)::date AS semana,
-                 SUM(c.val_cuota) AS total_semana
-           FROM  tab_cuotasxfactura c
-          WHERE  c.ind_pagada = FALSE
-            AND  c.fec_vencimiento BETWEEN CURRENT_DATE
-                 AND CURRENT_DATE + INTERVAL '8 weeks'
-          GROUP BY DATE_TRUNC('week', c.fec_vencimiento)
-          ORDER BY semana"
-    );
-
-    // ---- FACTURAS VENCIDAS (alerta) ----
-    $list_facturas_vencidas = $pdo->prepare(
-        "SELECT  f.id_factura,
-                 t.nom_tercero,
-                 f.fec_vencimiento,
-                 f.val_saldo
-           FROM  tab_cuentasxpagar f
-           JOIN  tab_terceros      t ON t.id_tercero = f.id_proveedor
-          WHERE  f.ind_estado = FALSE
-            AND  f.fec_vencimiento < CURRENT_DATE
-          ORDER BY f.fec_vencimiento
-          LIMIT  8"
-    );
-
-    // ---- CAJAS MENORES CON SALDO BAJO (alerta — menos del 20% disponible) ----
-    $list_cajas_saldo_bajo = $pdo->prepare(
-        "SELECT  id_caja_menor,
-                 nom_caja_menor,
-                 monto_asignado,
-                 monto_disponible
-           FROM  tab_enc_caja_menor
-          WHERE  ind_estado_caja_m = TRUE
-            AND  monto_asignado > 0
-            AND  (monto_disponible::numeric / monto_asignado::numeric) < 0.20
-          ORDER BY (monto_disponible::numeric / monto_asignado::numeric)
-          LIMIT  6"
-    );
-
-    // ---- CRONOGRAMAS PENDIENTES PRÓXIMOS (alerta) ----
-    $list_cronogramas_proximos = $pdo->prepare(
-        "SELECT  id_cronograma,
-                 nom_cronograma,
-                 fec_programacion,
-                 total_a_pagar
-           FROM  tab_enc_cronopagos
-          WHERE  ind_borrado = FALSE
-            AND  ind_estado  = FALSE
-          ORDER BY fec_programacion
-          LIMIT  6"
-    );
-
 } catch (PDOException $e) {
     error_log("Error en prepare_tescxp.php: " . $e->getMessage());
     die("Error crítico al preparar consultas. Revise los logs del servidor.");
