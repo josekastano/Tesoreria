@@ -265,6 +265,10 @@ LANGUAGE PLPGSQL;
 --       Solo se permite borrar detalle de un cronograma ACTIVO, que esté PENDIENTE (no pagado)
 --       y que no tenga archivos planos GENERADOS. Tras borrar la línea se RECALCULA el
 --       total_a_pagar del encabezado con el detalle restante.
+--
+--       REGLA ADICIONAL: un cronograma debe conservar SIEMPRE al menos una cuota. Por eso
+--       no se permite eliminar la última línea de detalle (si tiene 2 puedes borrar 1, pero
+--       no las 2). Para dejar el cronograma sin detalle, se debe eliminar el cronograma completo.
 --------------------------------------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fun_delete_det_cronopagos (wid_cronograma  tab_det_cronopagos.id_cronograma%TYPE,
                                                       wid_factura     tab_det_cronopagos.id_factura%TYPE,
@@ -295,6 +299,13 @@ BEGIN
 -- VALIDAR QUE LA LÍNEA DE DETALLE EXISTA
     IF NOT EXISTS (SELECT 1 FROM tab_det_cronopagos WHERE id_cronograma = wid_cronograma AND id_factura = wid_factura AND id_cuota = wid_cuota) THEN
         RAISE EXCEPTION 'La cuota % de la factura % no existe en el detalle del cronograma %.', wid_cuota, wid_factura, wid_cronograma;
+    END IF;
+
+-- VALIDAR QUE NO SE ELIMINE LA ÚLTIMA LÍNEA DE DETALLE DEL CRONOGRAMA
+-- (El cronograma debe conservar al menos una cuota. Como la línea a borrar ya se validó
+--  que existe, un COUNT <= 1 significa que esta es la única que queda, por lo que se bloquea.)
+    IF (SELECT COUNT(id_factura) FROM tab_det_cronopagos WHERE id_cronograma = wid_cronograma) <= 1 THEN
+        RAISE EXCEPTION 'No se puede eliminar la última cuota del cronograma %. Un cronograma debe conservar al menos una cuota; si desea dejarlo vacío, elimine el cronograma completo.', wid_cronograma;
     END IF;
 
 -- SI TODO VA BIEN, SE BORRA FÍSICAMENTE LA LÍNEA DE DETALLE

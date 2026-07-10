@@ -919,6 +919,34 @@
 .cuota-fecha { color: #475569; }
 .cuota-valor { font-weight: 600; color: #1e293b; text-align: right; }
 
+/* Botón de eliminar factura/cuota del detalle del cronograma.
+   Reproduce EXACTAMENTE el botón .btn-icon-sm.reject de la tabla.
+   IMPORTANTE: se usan los colores hex literales en lugar de var(--dash-rose*)
+   porque esas variables están definidas en .app-view y #modal-detail vive FUERA
+   de ese contenedor; dentro del modal las variables no existen, así que
+   var(--dash-rose-light) quedaba transparente y var(--dash-rose) caía a negro
+   (ese era el "botón negro feo"). Los hex #fff1f2 / #f43f5e son justo los valores
+   que resuelven --dash-rose-light y --dash-rose en la tabla. */
+.btn-del-detalle {
+    border: none;
+    border-radius: 8px;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    margin: 0 2px;
+    background: #fff1f2;
+    color: #f43f5e;
+    transition: transform 0.1s ease, filter 0.1s ease;
+}
+.btn-del-detalle:hover {
+    transform: translateY(-1px);
+    filter: brightness(0.95);
+}
+
 /* ---- MOVIMIENTOS DE CAJA MENOR (lista dentro del modal de detalle) ---- */
 .mov-row {
     display: grid;
