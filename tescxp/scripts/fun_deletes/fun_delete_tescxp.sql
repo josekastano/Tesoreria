@@ -58,7 +58,7 @@ BEGIN
     END IF;
 
 -- VALIDAR QUE NO EXISTAN MOVIMIENTOS SIN RESOLVER (PENDIENTES O APROBADOS, AÚN NO REEMBOLSADOS)
-    SELECT COUNT(*) INTO wmovs_sin_resolver
+    SELECT COUNT(id_movimiento) INTO wmovs_sin_resolver
     FROM   tab_det_caja_menor
     WHERE  id_caja_menor = wid_caja_menor AND ind_estado IN (1, 2);
 

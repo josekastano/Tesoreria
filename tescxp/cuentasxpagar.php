@@ -316,7 +316,7 @@ ob_start();
                 <div class="form-grid">
                     <div class="form-field">
                         <label class="form-label">Fecha de Emisión <span class="required">*</span></label>
-                        <input type="date" id="new-fec-emision" name="txt_fec_emision" class="form-input" value="<?= date('Y-m-d') ?>">
+                        <input type="date" id="new-fec-emision" name="txt_fec_emision" class="form-input" max="<?= date('Y-m-d') ?>">
                         <span class="field-error" id="err-new-emision"></span>
                     </div>
                     <div class="form-field">

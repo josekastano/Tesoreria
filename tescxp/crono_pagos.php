@@ -485,7 +485,7 @@ const cronogramasData = <?= json_encode(array_values($cronogramas), JSON_HEX_TAG
                 </div>
                 <div class="form-field">
                     <label class="form-label">Fecha de Programación <span class="required">*</span></label>
-                    <input type="date" id="edit-fec-prog" name="txt_edit_fec_programacion" class="form-input">
+                    <input type="date" id="edit-fec-prog" name="txt_edit_fec_programacion" class="form-input" min="<?= date('Y-m-d') ?>">
                     <span class="field-error" id="err-edit-fecha"></span>
                 </div>
             </form>
