@@ -329,3 +329,53 @@ EXCEPTION
 END;
 $BODY$
 LANGUAGE PLPGSQL;
+
+--------------------------------------------------------------------------------------------------------------------------------------
+-- FUNCIÓN DE DELETE LÓGICO DE BANCOS
+-- NOTA: No se permite borrar un banco que esté siendo usado en cuentas de la
+--       empresa (tab_ctas_empresa), cuentas de proveedores (tab_bancoxprov)
+--       o archivos planos (tab_enc_archivo_plano), ya que estas dependen
+--       directamente del banco (FK).
+--------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fun_delete_bancos (wid_banco       tab_bancos.id_banco%TYPE) RETURNS BOOLEAN AS
+$BODY$
+BEGIN
+
+-- VALIDAR QUE EL ID DEL BANCO NO SEA NULO
+    IF wid_banco IS NULL THEN
+        RAISE EXCEPTION 'El ID del banco no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE EL BANCO EXISTA Y NO ESTÉ YA BORRADO
+    IF NOT EXISTS (SELECT 1 FROM tab_bancos WHERE id_banco = wid_banco AND ind_borrado = FALSE) THEN
+        RAISE EXCEPTION 'El banco % no existe o ya se encuentra inactivo.', wid_banco;
+    END IF;
+
+-- VALIDAR QUE EL BANCO NO ESTÉ SIENDO USADO EN CUENTAS DE LA EMPRESA
+    IF EXISTS (SELECT 1 FROM tab_ctas_empresa WHERE id_banco = wid_banco AND ind_borrado = FALSE) THEN
+        RAISE EXCEPTION 'El banco % está siendo usado en cuentas de la empresa y no puede ser borrado.', wid_banco;
+    END IF;
+
+-- VALIDAR QUE EL BANCO NO ESTÉ SIENDO USADO EN CUENTAS DE PROVEEDORES
+    IF EXISTS (SELECT 1 FROM tab_bancoxprov WHERE id_banco = wid_banco AND ind_borrado = FALSE) THEN
+        RAISE EXCEPTION 'El banco % está siendo usado en cuentas de proveedores y no puede ser borrado.', wid_banco;
+    END IF;
+
+-- VALIDAR QUE EL BANCO NO ESTÉ SIENDO USADO EN ARCHIVOS PLANOS
+    IF EXISTS (SELECT 1 FROM tab_enc_archivo_plano WHERE id_banco = wid_banco) THEN
+        RAISE EXCEPTION 'El banco % está siendo usado en archivos planos y no puede ser borrado.', wid_banco;
+    END IF;
+
+-- SI TODO VA BIEN, SE BORRA LÓGICAMENTE EN tab_bancos
+    UPDATE tab_bancos
+    SET    ind_borrado = TRUE
+    WHERE  id_banco    = wid_banco;
+
+    RETURN TRUE;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'ERROR: %', public.fun_mensaje_error(SQLSTATE, SQLERRM);
+END;
+$BODY$
+LANGUAGE PLPGSQL;

@@ -1,0 +1,692 @@
+/* ============================================================
+   bancos.css — Vista "Bancos" (catálogo de bancos)
+   Hoja de estilos COMPLETA y autocontenida.
+   No depende de ninguna clase definida en otro archivo del ERP.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+
+/* ---------- Variables ---------- */
+:root {
+  --bnc-card:        #ffffff;
+  --bnc-border:      #e2e7ef;
+  --bnc-shadow:      0 1px 4px rgba(30, 50, 100, 0.07);
+  --bnc-shadow-md:   0 4px 16px rgba(30, 50, 100, 0.10);
+
+  --bnc-text-head:   #0d1b2e;
+  --bnc-text-sub:    #6b7a99;
+  --bnc-text-label:  #8494b2;
+  --bnc-text-body:   #2d3a52;
+
+  --bnc-blue:        #2563eb;
+  --bnc-blue-hover:  #1d4fd8;
+  --bnc-blue-light:  #eff4ff;
+
+  --bnc-green:       #059669;
+  --bnc-green-light: #ecfdf5;
+
+  --bnc-yellow:      #f59e0b;
+  --bnc-yellow-light:#fffbeb;
+
+  --bnc-red:         #dc2626;
+  --bnc-red-light:   #fef2f2;
+
+  --bnc-radius-sm:   8px;
+  --bnc-radius:      14px;
+  --bnc-radius-lg:   18px;
+
+  --bnc-font:        'DM Sans', 'Segoe UI', sans-serif;
+  --bnc-bg:          #f5f7fb;
+}
+
+/* ============================================================
+   CONTENEDOR PRINCIPAL
+   ============================================================ */
+
+#mod-bancos {
+  font-family: var(--bnc-font);
+  color: var(--bnc-text-body);
+  box-sizing: border-box;
+}
+
+#mod-bancos *,
+#mod-bancos *::before,
+#mod-bancos *::after {
+  box-sizing: border-box;
+}
+
+#mod-bancos.app-view {
+  display: block;
+}
+
+/* ============================================================
+   ENCABEZADO DEL MÓDULO
+   ============================================================ */
+
+#mod-bancos .module-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+#mod-bancos .module-header-text h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--bnc-text-head);
+  letter-spacing: -0.4px;
+  margin: 0 0 4px;
+}
+
+#mod-bancos .module-header-text p {
+  font-size: 13.5px;
+  color: var(--bnc-text-sub);
+  margin: 0;
+}
+
+/* ---------- Botones genéricos ---------- */
+#mod-bancos .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 50px;
+  padding: 11px 20px;
+  font-family: var(--bnc-font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, box-shadow 0.18s, transform 0.12s, color 0.18s;
+  white-space: nowrap;
+}
+
+#mod-bancos .btn:active,
+.modal-footer .btn:active {
+  transform: translateY(0);
+}
+
+#mod-bancos .btn-primary {
+  background: var(--bnc-blue);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+}
+
+#mod-bancos .btn-primary:hover {
+  background: var(--bnc-blue-hover);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   TARJETAS DE ESTADÍSTICAS
+   ============================================================ */
+
+#mod-bancos .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+#mod-bancos .stat-card {
+  background: var(--bnc-card);
+  border: 1px solid var(--bnc-border);
+  border-radius: var(--bnc-radius);
+  box-shadow: var(--bnc-shadow);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+#mod-bancos .stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+#mod-bancos .stat-icon.blue   { background: var(--bnc-blue-light);   color: var(--bnc-blue); }
+#mod-bancos .stat-icon.green  { background: var(--bnc-green-light);  color: var(--bnc-green); }
+#mod-bancos .stat-icon.yellow { background: var(--bnc-yellow-light); color: var(--bnc-yellow); }
+
+#mod-bancos .stat-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--bnc-text-sub);
+  margin-bottom: 2px;
+}
+
+#mod-bancos .stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--bnc-text-head);
+  line-height: 1.1;
+}
+
+/* ============================================================
+   BARRA DE FILTROS
+   ============================================================ */
+
+#mod-bancos .filter-bar {
+  background: var(--bnc-card);
+  border: 1px solid var(--bnc-border);
+  border-radius: var(--bnc-radius);
+  box-shadow: var(--bnc-shadow);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+#mod-bancos .search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 220px;
+}
+
+#mod-bancos .search-icon {
+  position: absolute;
+  left: 13px;
+  color: var(--bnc-text-sub);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+#mod-bancos .search-input {
+  width: 100%;
+  padding: 10px 14px 10px 36px;
+  border: 1.5px solid var(--bnc-border);
+  border-radius: var(--bnc-radius-sm);
+  font-family: var(--bnc-font);
+  font-size: 13.5px;
+  color: var(--bnc-text-body);
+  background: #fff;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+#mod-bancos .search-input::placeholder { color: #bcc6d8; }
+
+#mod-bancos .search-input:focus {
+  border-color: var(--bnc-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.10);
+}
+
+#mod-bancos .filter-toggle-group {
+  display: flex;
+  gap: 6px;
+  background: var(--bnc-bg);
+  padding: 4px;
+  border-radius: 10px;
+}
+
+#mod-bancos .filter-toggle {
+  border: none;
+  background: transparent;
+  color: var(--bnc-text-sub);
+  font-family: var(--bnc-font);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+#mod-bancos .filter-toggle:hover { color: var(--bnc-text-head); }
+
+#mod-bancos .filter-toggle.active {
+  background: #fff;
+  color: var(--bnc-blue);
+  box-shadow: 0 1px 3px rgba(30, 50, 100, 0.12);
+}
+
+#mod-bancos .btn-clear-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--bnc-blue);
+  border: 1.5px solid var(--bnc-border);
+  border-radius: var(--bnc-radius-sm);
+  padding: 9px 14px;
+  font-family: var(--bnc-font);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+#mod-bancos .btn-clear-filter:hover {
+  background: var(--bnc-blue-light);
+  border-color: var(--bnc-blue);
+}
+
+#mod-bancos .filter-info {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bnc-text-sub);
+  background: var(--bnc-bg);
+  border-radius: 20px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   TABLA
+   ============================================================ */
+
+#mod-bancos .table-container {
+  background: var(--bnc-card);
+  border: 1px solid var(--bnc-border);
+  border-radius: var(--bnc-radius);
+  box-shadow: var(--bnc-shadow);
+  overflow-x: auto;
+}
+
+#mod-bancos .data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#mod-bancos .data-table thead th {
+  padding: 12px 20px;
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--bnc-text-label);
+  border-bottom: 1px solid var(--bnc-border);
+  white-space: nowrap;
+}
+
+#mod-bancos .data-table tbody tr { transition: background 0.12s; }
+#mod-bancos .data-table tbody tr:hover { background: #f7f9fd; }
+#mod-bancos .data-table tbody tr:last-child td { border-bottom: none; }
+
+#mod-bancos .data-table tbody td {
+  padding: 13px 20px;
+  font-size: 13.5px;
+  color: var(--bnc-text-body);
+  vertical-align: middle;
+  border-bottom: 1px solid #f0f3f8;
+}
+
+#mod-bancos .text-center { text-align: center; }
+
+/* ---------- Estado vacío ---------- */
+#mod-bancos .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 52px 24px;
+  color: var(--bnc-text-sub);
+}
+
+#mod-bancos .empty-state i {
+  font-size: 30px;
+  color: #c8d3e8;
+  margin-bottom: 4px;
+}
+
+#mod-bancos .empty-state p {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bnc-text-body);
+  margin: 0;
+}
+
+#mod-bancos .empty-state span {
+  font-size: 12.5px;
+  color: var(--bnc-text-sub);
+}
+
+/* ---------- Badges ---------- */
+#mod-bancos .badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+#mod-bancos .badge-active   { background: var(--bnc-green-light); color: var(--bnc-green); }
+#mod-bancos .badge-inactive { background: var(--bnc-yellow-light); color: var(--bnc-yellow); }
+
+/* ---------- Botones de acción en filas ---------- */
+#mod-bancos .btn-icon-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--bnc-text-sub);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.13s, color 0.13s;
+}
+
+#mod-bancos .btn-icon-sm:hover { background: var(--bnc-bg); color: var(--bnc-text-head); }
+
+#mod-bancos .btn-icon-sm.edit         { color: var(--bnc-blue); }
+#mod-bancos .btn-icon-sm.edit:hover   { background: var(--bnc-blue-light); color: var(--bnc-blue-hover); }
+
+#mod-bancos .btn-icon-sm.reject       { color: var(--bnc-red); }
+#mod-bancos .btn-icon-sm.reject:hover { background: var(--bnc-red-light); color: #b91c1c; }
+
+#mod-bancos .btn-icon-sm.toggle       { color: var(--bnc-yellow); }
+#mod-bancos .btn-icon-sm.toggle:hover { background: var(--bnc-yellow-light); color: #d97706; }
+
+/* ============================================================
+   MODALES (NUEVO / EDITAR BANCO)
+   Nota: estos bloques quedan fuera de #mod-bancos en el HTML,
+   por eso sus estilos NO están anidados bajo ese id.
+   ============================================================ */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 27, 46, 0.45);
+  backdrop-filter: blur(3px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  font-family: var(--bnc-font);
+  animation: bncFadeIn 0.18s ease;
+}
+
+@keyframes bncFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bncSlideUp {
+  from { opacity: 0; transform: translateY(18px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-box {
+  background: #fff;
+  border-radius: var(--bnc-radius-lg);
+  box-shadow: 0 24px 64px rgba(13, 27, 46, .18);
+  width: 100%;
+  max-width: 520px;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: bncSlideUp .22s cubic-bezier(.22,.68,0,1.15);
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 26px 16px;
+  border-bottom: 1px solid var(--bnc-border);
+  flex-shrink: 0;
+}
+
+.modal-header.green {
+  background: var(--bnc-green);
+  border-bottom-color: rgba(255, 255, 255, 0.18);
+}
+.modal-header.blue {
+  background: var(--bnc-blue);
+  border-bottom-color: rgba(255, 255, 255, 0.18);
+}
+
+.modal-header h2 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--bnc-text-head);
+  margin: 0 0 3px;
+}
+
+.modal-header p {
+  font-size: 12.5px;
+  color: var(--bnc-text-sub);
+  margin: 0;
+}
+
+.modal-header.green h2,
+.modal-header.blue h2 {
+  color: #fff;
+}
+
+.modal-header.green p,
+.modal-header.blue p {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid var(--bnc-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--bnc-text-sub);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.14s, color 0.14s, border-color 0.14s;
+}
+
+.modal-close:hover { background: #f4f6fb; color: var(--bnc-text-head); }
+
+.modal-header.green .modal-close,
+.modal-header.blue .modal-close {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
+}
+
+.modal-header.green .modal-close:hover,
+.modal-header.blue .modal-close:hover {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+.modal-body {
+  padding: 20px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.form-field { display: flex; flex-direction: column; gap: 5px; }
+
+.form-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--bnc-text-label);
+}
+
+.form-label .required { color: var(--bnc-red); margin-left: 2px; }
+
+.form-input, .form-select {
+  padding: 10px 14px;
+  border: 1.5px solid var(--bnc-border);
+  border-radius: var(--bnc-radius-sm);
+  font-family: var(--bnc-font);
+  font-size: 13.5px;
+  color: var(--bnc-text-body);
+  background: #fff;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+.form-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238494b2' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 12px center;
+  cursor: pointer;
+  padding-right: 34px;
+}
+
+.form-input::placeholder { color: #bcc6d8; }
+
+.form-input:focus, .form-select:focus {
+  border-color: var(--bnc-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .10);
+}
+
+.form-input:disabled {
+  background: #f4f6fb;
+  color: var(--bnc-text-label);
+  cursor: not-allowed;
+}
+
+.field-error {
+  display: none;
+  font-size: 11.5px;
+  color: var(--bnc-red);
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+.field-error.visible { display: block; }
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 26px 22px;
+  border-top: 1px solid var(--bnc-border);
+  flex-shrink: 0;
+}
+
+.modal-footer .btn-secondary {
+  background: transparent;
+  border: none;
+  color: var(--bnc-text-sub);
+  font-family: var(--bnc-font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 18px;
+  border-radius: 50px;
+  transition: color .15s, background .15s;
+}
+
+.modal-footer .btn-secondary:hover { background: #f4f6fb; color: var(--bnc-text-body); }
+
+.modal-footer .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--bnc-blue);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 11px 20px;
+  font-family: var(--bnc-font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, .35);
+  transition: background .18s, box-shadow .18s, transform .12s;
+}
+
+.modal-footer .btn-primary:hover {
+  background: var(--bnc-blue-hover);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, .45);
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+
+#toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  color: #fff;
+  font-family: var(--bnc-font);
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 12px 22px;
+  border-radius: 50px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .22);
+  z-index: 10000;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+
+.hidden { display: none !important; }
+
+/* ---------- Foco accesible ---------- */
+#mod-bancos button:focus-visible,
+.modal-overlay button:focus-visible {
+  outline: 2px solid var(--bnc-blue);
+  outline-offset: 2px;
+}
+
+#mod-bancos input:focus-visible,
+#mod-bancos select:focus-visible,
+.modal-overlay input:focus-visible,
+.modal-overlay select:focus-visible {
+  outline: none;
+}
+
+/* ============================================================
+   RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 768px) {
+  #mod-bancos .module-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #mod-bancos .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #mod-bancos .search-wrapper { min-width: 100%; }
+
+  #mod-bancos .filter-toggle-group { justify-content: space-between; }
+
+  #mod-bancos .btn-clear-filter { justify-content: center; }
+
+  #mod-bancos .data-table thead th,
+  #mod-bancos .data-table tbody td {
+    padding: 10px 12px;
+    font-size: 12.5px;
+  }
+
+  .modal-box { max-width: 100%; }
+}

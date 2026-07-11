@@ -609,6 +609,39 @@ try {
           WHERE id_archivo_plano = :wid_archivo_plano"
     );
 
+
+    // =========================================================================
+    // 9. TAB_BANCOS
+    // =========================================================================
+
+// ---------- LISTAR (para la vista principal de bancos.php) ----------
+    $list_bancos_full = $pdo->prepare("SELECT id_banco, nom_banco, ind_estado
+        FROM tab_bancos
+        WHERE ind_borrado = FALSE
+        ORDER BY nom_banco ASC
+    ");
+ 
+// ---------- INSERTAR (usa fun_insert_bancos) ----------
+    $ins_banco = $pdo->prepare("SELECT fun_insert_bancos(:wid_banco, :wnom_banco, :wind_estado)");
+ 
+// ---------- ACTUALIZAR (nombre + estado, usa fun_update_bancos) ----------
+    $upd_banco = $pdo->prepare("SELECT fun_update_bancos(:wid_banco, :wnom_banco, :wind_estado)");
+ 
+// ---------- ACTIVAR / DESACTIVAR RÁPIDO (botón ⏻ de la tabla) ----------
+// NOTA: fun_update_bancos exige el nombre del banco, y el botón rápido de
+// la tabla solo envía el estado. Como este caso es solo un cambio de
+// ind_estado, se deja como UPDATE directo (no pasa por la función) en
+// lugar de obligar a consultar el nombre antes de cada clic. El WHERE ya
+// exige que el banco exista y no esté borrado. Si prefieres que también
+// pase por una función, se puede crear fun_update_estado_bancos.
+    $upd_banco_estado = $pdo->prepare("UPDATE tab_bancos SET ind_estado = :wind_estado
+        WHERE id_banco    = :wid_banco
+        AND ind_borrado = FALSE
+    ");
+ 
+// ---------- ELIMINAR (borrado lógico, usa fun_delete_bancos) ----------
+    $del_banco = $pdo->prepare("SELECT fun_delete_bancos(:wid_banco)");
+
 } catch (PDOException $e) {
     error_log("Error en prepare_tescxp.php: " . $e->getMessage());
     die("Error crítico al preparar consultas. Revise los logs del servidor.");
