@@ -184,6 +184,7 @@ CREATE INDEX idx_cuotas_vencimiento ON tab_cuotasxfactura(fec_vencimiento);
 CREATE TABLE tab_enc_cronopagos
 (
     id_cronograma       DECIMAL(10,0) 		NOT NULL CHECK((id_cronograma) >= 0 AND (id_cronograma) <= 9999999999),             -- Identificador del cronograma
+    nom_cronograma      VARCHAR(30)         NOT NULL CHECK(LENGTH(nom_cronograma) >= 3 AND (LENGTH(nom_cronograma) <= 30)) DEFAULT 'Cronograma de pago',   -- Nombre del cronograma de pago
     fec_programacion    DATE                NOT NULL,                                                                           -- Fecha para la cual se planificó pagar dicho cronograma (la app valida que sea futura al crearlo)
     total_a_pagar       DECIMAL(10,0)       NOT NULL CHECK((total_a_pagar) >= 0 AND (total_a_pagar) <= 9999999999),             -- Monto total a pagar por ese cronograma
     ind_estado          BOOLEAN             NOT NULL DEFAULT FALSE,                                                             -- TRUE = Pagado / FALSE = Pendiente
@@ -203,10 +204,10 @@ CREATE INDEX idx_crono_estado   ON tab_enc_cronopagos(ind_estado);
 -- TABLA 10: Tabla de detalle de cronograma de pagos
 CREATE TABLE tab_det_cronopagos
 (
-    id_cronograma       DECIMAL(10,0) 		NOT NULL CHECK((id_cronograma) >= 0 AND (id_cronograma) <= 9999999999),             -- Identificador del cronograma
-    id_factura          DECIMAL(8,0)        NOT NULL CHECK((id_factura) >= 1 AND (id_factura) <= 99999999),                     -- Identificador de la factura
-    id_cuota            DECIMAL(2,0)        NOT NULL CHECK((id_cuota) >= 1 AND (id_cuota) <= 99),                               -- Número de cuota que se va a pagar en el cronograma
-    val_a_pagar         DECIMAL(10,0)       NOT NULL CHECK((val_a_pagar) >= 0 AND (val_a_pagar) <= 9999999999),                 -- Monto a pagar por cada cuota factura
+    id_cronograma       DECIMAL(10,0) 		NOT NULL CHECK((id_cronograma) >= 0 AND (id_cronograma) <= 9999999999),             						   -- Identificador del cronograma
+	id_factura          DECIMAL(8,0)        NOT NULL CHECK((id_factura) >= 1 AND (id_factura) <= 99999999),                     						   -- Identificador de la factura
+    id_cuota            DECIMAL(2,0)        NOT NULL CHECK((id_cuota) >= 1 AND (id_cuota) <= 99),                              						       -- Número de cuota que se va a pagar en el cronograma
+    val_a_pagar         DECIMAL(10,0)       NOT NULL CHECK((val_a_pagar) >= 0 AND (val_a_pagar) <= 9999999999),                                            -- Monto a pagar por cada cuota factura
 
     PRIMARY KEY(id_cronograma,id_factura,id_cuota),
 
