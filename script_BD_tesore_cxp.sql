@@ -26,7 +26,7 @@ CREATE TABLE tab_festivos
 (
     id_festivo         DECIMAL(4,0)         NOT NULL CHECK((id_festivo >= 0 AND id_festivo <= 9999)),                                                   -- Identificador del día festivo
     fecha              DATE                 NOT NULL DEFAULT CURRENT_DATE,                                                                              -- Fecha de el día festivo (no se restringe a futuro: debe poder cargarse el calendario completo del año)
-    nom_festivo        VARCHAR(30)          NOT NULL CHECK((LENGTH(nom_festivo) >= 3) AND (LENGTH(nom_festivo) <= 30)) DEFAULT 'Día sin especificar',   -- Nombre descriptivo
+    nom_festivo        VARCHAR(30)          NOT NULL CHECK((LENGTH(nom_festivo) >= 3) AND (LENGTH(nom_festivo) <= 50)) DEFAULT 'Día sin especificar',   -- Nombre descriptivo
     ind_borrado        BOOLEAN              NOT NULL DEFAULT FALSE,                   										                            -- TRUE: Borrado lógico (Inactivo) / FALSE: Activo
      
     PRIMARY KEY (id_festivo),
@@ -83,7 +83,7 @@ CREATE INDEX IF NOT EXISTS idx_mov_caja_caja ON tab_det_caja_menor(id_caja_menor
 -- TABLA 4: Parámetros de Tesorería
 CREATE TABLE tab_pmtros_tescxp
 (
-    id_empresa          VARCHAR(10)         NOT NULL CHECK(id_empresa ~ '^[1-9][0-9]{7,9}$') DEFAULT '2222222222',                            -- Identificador (NIT) de la empresa
+    id_empresa	        VARCHAR(10)		    NOT NULL,													                                    -- Identificador de la empresa
     fec_diapago1        DECIMAL(1,0)        NOT NULL CHECK((fec_diapago1) >= 1 AND (fec_diapago1) <= 6) DEFAULT 1,                          -- Día #1 en el que la empresa decide pagar
     fec_diapago2        DECIMAL(1,0)        NOT NULL CHECK((fec_diapago2) >= 1 AND (fec_diapago2) <= 6) DEFAULT 3,                          -- Día #2 en el que la empresa decide pagar
     fec_diapago3        DECIMAL(1,0)        NOT NULL CHECK((fec_diapago3) >= 1 AND (fec_diapago3) <= 6) DEFAULT 5,                          -- Día #3 en el que la empresa decide pagar
@@ -100,15 +100,14 @@ CREATE TABLE tab_pmtros_tescxp
 -- TABLA 5: Cuentas de la empresa
 CREATE TABLE tab_ctas_empresa
 (
-    id_empresa          VARCHAR(10)         NOT NULL CHECK(id_empresa ~ '^[1-9][0-9]{7,9}$'),                                               -- Identificador (NIT) de la empresa
+    id_empresa	        VARCHAR(10)		    NOT NULL,													                                    -- Identificador de la empresa                                              -- Identificador (NIT) de la empresa
     cta_empresa         VARCHAR(16)         NOT NULL CHECK(LENGTH(cta_empresa) >= 10 AND LENGTH(cta_empresa) <= 16) DEFAULT '0000000000',   -- Número de cuenta bancaria de la empresa
-    id_banco            VARCHAR(10)         NOT NULL CHECK(id_banco ~ '^[1-9][0-9]{7,9}$') DEFAULT '2222222222',                            -- Identificador (NIT) del banco
+    id_banco            VARCHAR             NOT NULL,                                                                                           -- Identificador del banco
     ind_tipocuenta      BOOLEAN             NOT NULL DEFAULT FALSE,                                                                         -- TRUE = Corriente / FALSE = Ahorros
     ind_borrado         BOOLEAN             NOT NULL DEFAULT FALSE,                                                                         -- TRUE: Borrado lógico (Inactivo) / FALSE: Activo
 
     PRIMARY KEY         (id_empresa,cta_empresa),         
-    FOREIGN KEY         (id_empresa)        REFERENCES tab_pmtros_grales(id_empresa),                                                    -- Apunta al maestro general, NO a los parámetros de tesorería: una empresa puede tener cuentas bancarias aunque todavía no se le hayan configurado los parámetros
-
+    FOREIGN KEY         (id_empresa)        REFERENCES tab_pmtros_grales(id_empresa),   
     FOREIGN KEY         (id_banco)          REFERENCES tab_bancos(id_banco)                                                                             
 );
 
@@ -120,7 +119,7 @@ CREATE TABLE IF NOT EXISTS tab_bancoxprov
 (
     id_proveedor        VARCHAR(10)         NOT NULL CHECK(id_proveedor ~ '^[1-9][0-9]{7,9}$') DEFAULT '2222222222',                            -- Identificador (NIT) del proveedor
     cta_proveedor       VARCHAR(16)         NOT NULL CHECK(LENGTH(cta_proveedor) >= 10 AND LENGTH(cta_proveedor) <= 16) DEFAULT '0000000000',   -- Número de cuenta bancaria del proveedor
-    id_banco            VARCHAR(10)         NOT NULL CHECK(id_banco ~ '^[1-9][0-9]{7,9}$') DEFAULT '2222222222',                                -- Identificador (NIT) del banco  
+    id_banco            VARCHAR             NOT NULL,                                                                                           -- Identificador del banco 
     ind_tipocuenta      BOOLEAN             NOT NULL DEFAULT FALSE,                                                                             -- TRUE = Corriente / FALSE = Ahorros
     ind_borrado         BOOLEAN             NOT NULL DEFAULT FALSE,                                                                             -- TRUE: Borrado lógico (Inactivo) / FALSE: Activo
 
@@ -210,11 +209,10 @@ CREATE TABLE tab_det_cronopagos
     val_a_pagar         DECIMAL(10,0)       NOT NULL CHECK((val_a_pagar) >= 0 AND (val_a_pagar) <= 9999999999),                                            -- Monto a pagar por cada cuota factura
 
     PRIMARY KEY(id_cronograma,id_factura,id_cuota),
-
-    CONSTRAINT uq_cuota_programada          UNIQUE (id_factura,id_cuota),                                                        -- Una cuota solo puede estar programada en UN cronograma a la vez (impide el doble pago)
-
     FOREIGN KEY(id_cronograma)              REFERENCES tab_enc_cronopagos(id_cronograma),
     FOREIGN KEY(id_factura,id_cuota)        REFERENCES tab_cuotasxfactura(id_factura,id_cuota)
+
+    CONSTRAINT uq_cuota_programada          UNIQUE (id_factura,id_cuota),                                                        -- Una cuota solo puede estar programada en UN cronograma a la vez (impide el doble pago)
 );
 
 ------------------------------------------
@@ -225,7 +223,7 @@ CREATE TABLE tab_enc_archivo_plano
 (
     id_archivo_plano    DECIMAL(10,0) 		NOT NULL CHECK((id_archivo_plano) >= 0 AND (id_archivo_plano) <= 9999999999),                       -- Identificador del archivo plano
     id_cronograma       DECIMAL(10,0) 		NOT NULL CHECK((id_cronograma) >= 0 AND (id_cronograma) <= 9999999999),                             -- Identificador del cronograma
-    id_banco            VARCHAR(10)         NOT NULL CHECK(id_banco ~ '^[1-9][0-9]{7,9}$') DEFAULT '2222222222',                                -- NIT del banco al cuál se va a generar el archivo plano, esto sirve para generar en distinto formato dependiendo el banco
+    id_banco            VARCHAR             NOT NULL,                                                                                           -- Identificador del banco
     nom_archivo         VARCHAR(30)         NOT NULL CHECK(LENGTH(nom_archivo) >= 3 AND (LENGTH(nom_archivo) <= 30)) DEFAULT 'archivo_plano',   -- Nombre del archivo plano
     fec_generacion      DATE,                                                                                                                   -- Fecha de generación del archivo(NULL Si no se ha creado)
     ind_generado        BOOLEAN             NOT NULL DEFAULT FALSE,                                                                             -- Indicador de generado del archivo
@@ -244,7 +242,7 @@ CREATE INDEX idx_archplano_generado ON tab_enc_archivo_plano(ind_generado);
 CREATE TABLE tab_det_archivo_plano
 (
     id_archivo_plano    DECIMAL(10,0) 		NOT NULL CHECK((id_archivo_plano) >= 0 AND (id_archivo_plano) <= 9999999999),                       -- Identificador del archivo plano
-    id_empresa          VARCHAR(10)         NOT NULL CHECK(id_empresa ~ '^[1-9][0-9]{7,9}$') DEFAULT '2222222222',                                -- Identificador (NIT) de la empresa
+    id_empresa	        VARCHAR(10)		    NOT NULL,													                                        -- Identificador de la empresa
     cta_empresa         VARCHAR(16)         NOT NULL CHECK(LENGTH(cta_empresa) >= 10 AND LENGTH(cta_empresa) <= 16) DEFAULT '0000000000',       -- Número de cuenta bancaria de la empresa de la cuál va a salir el dinero
     id_proveedor        VARCHAR(10)         NOT NULL CHECK(id_proveedor ~ '^[1-9][0-9]{7,9}$') DEFAULT '2222222222',                            -- Identificador (NIT) del proveedor al que se le va a pagar
     cta_proveedor       VARCHAR(16)         NOT NULL CHECK(LENGTH(cta_proveedor) >= 10 AND LENGTH(cta_proveedor) <= 16) DEFAULT '0000000000',   -- Número de cuenta de destino para pagar, no se referencia de tab_bancoxprov para tener una trazabilidad y la cuenta no cambie en el archivo plano cuando el proveedor cambie su cuenta
@@ -254,7 +252,6 @@ CREATE TABLE tab_det_archivo_plano
     val_a_pagar         DECIMAL(10,0)       NOT NULL CHECK((val_a_pagar) >= 0 AND (val_a_pagar) <= 9999999999),                                 -- Monto a pagar por cada cuota factura
 
     PRIMARY KEY(id_archivo_plano,id_factura,id_cuota),
-
     FOREIGN KEY(id_archivo_plano)           REFERENCES tab_enc_archivo_plano(id_archivo_plano),
     FOREIGN KEY(id_factura,id_cuota)        REFERENCES tab_cuotasxfactura(id_factura,id_cuota),
     FOREIGN KEY(id_proveedor,cta_proveedor) REFERENCES tab_bancoxprov(id_proveedor,cta_proveedor),
