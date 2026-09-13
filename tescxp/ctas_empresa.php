@@ -172,7 +172,7 @@ $ctas_empresa = $list_ctas_empresa->fetchAll(PDO::FETCH_ASSOC);
 ob_start();
 ?>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-
+<link rel="stylesheet" href="modules/tescxp/css/ctas_empresa.css">
 <div id="mod-ctas-empresa" class="app-view active">
 
     <!-- ENCABEZADO -->
@@ -396,6 +396,9 @@ ob_start();
 
 <!-- TOAST -->
 <div id="toast" class="hidden"><span id="toast-message"></span></div>
+
+<!-- SCRIPTS JS -->
+<script src="modules/tescxp/js/ctas_empresa.js"></script>
 
 <?php
 $moduleContent = ob_get_clean();

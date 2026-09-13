@@ -155,7 +155,7 @@ $festivos = $list_festivos->fetchAll(PDO::FETCH_ASSOC);
 ob_start();
 ?>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-
+<link rel="stylesheet" href="modules/tescxp/css/festivos.css">
 <div id="mod-festivos" class="app-view active">
 
     <!-- ENCABEZADO -->
@@ -335,6 +335,8 @@ ob_start();
 <script>
 const festivosData = <?= json_encode(array_values($festivos), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
 </script>
+
+<script src="modules/tescxp/js/festivos.js"></script>
 
 <?php
 $moduleContent = ob_get_clean();

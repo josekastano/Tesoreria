@@ -1,692 +1,578 @@
 /* ============================================================
-   bancos.css — Vista "Bancos" (catálogo de bancos)
-   Hoja de estilos COMPLETA y autocontenida.
-   No depende de ninguna clase definida en otro archivo del ERP.
+   bancos.css — Bancos — catálogo del sistema
+   Página: bancos.php   ·   Contenedor: #mod-bancos
+   Estilo unificado con Proveedores / Dashboard.
+   Hoja autocontenida: solo contiene estilos usados por esta página.
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
-/* ---------- Variables ---------- */
-:root {
-  --bnc-card:        #ffffff;
-  --bnc-border:      #e2e7ef;
-  --bnc-shadow:      0 1px 4px rgba(30, 50, 100, 0.07);
-  --bnc-shadow-md:   0 4px 16px rgba(30, 50, 100, 0.10);
-
-  --bnc-text-head:   #0d1b2e;
-  --bnc-text-sub:    #6b7a99;
-  --bnc-text-label:  #8494b2;
-  --bnc-text-body:   #2d3a52;
-
-  --bnc-blue:        #2563eb;
-  --bnc-blue-hover:  #1d4fd8;
-  --bnc-blue-light:  #eff4ff;
-
-  --bnc-green:       #059669;
-  --bnc-green-light: #ecfdf5;
-
-  --bnc-yellow:      #f59e0b;
-  --bnc-yellow-light:#fffbeb;
-
-  --bnc-red:         #dc2626;
-  --bnc-red-light:   #fef2f2;
-
-  --bnc-radius-sm:   8px;
-  --bnc-radius:      14px;
-  --bnc-radius-lg:   18px;
-
-  --bnc-font:        'DM Sans', 'Segoe UI', sans-serif;
-  --bnc-bg:          #f5f7fb;
-}
-
-/* ============================================================
-   CONTENEDOR PRINCIPAL
-   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 #mod-bancos {
-  font-family: var(--bnc-font);
-  color: var(--bnc-text-body);
-  box-sizing: border-box;
+    --dash-bg:           #ffffff;
+    --dash-card:         #ffffff;
+    --dash-border:       #e9edf2;
+    --dash-shadow-sm:    0 1px 2px rgba(0,0,0,0.03), 0 1px 2px rgba(0,0,0,0.05);
+    --dash-shadow-md:    0 4px 12px rgba(0,0,0,0.06);
+    --dash-text-head:    #0a0c1a;
+    --dash-text-body:    #1e293b;
+    --dash-text-sub:     #475569;
+    --dash-text-muted:   #94a3b8;
+    --dash-blue:         #3b82f6;
+    --dash-blue-light:   #eff6ff;
+    --dash-green-dark:   #059669;
+    --dash-green-light:  #ecfdf5;
+    --dash-red:          #ef4444;
+    --dash-red-light:    #fef2f2;
+    --dash-amber:        #f59e0b;
+    --dash-amber-light:  #fffbeb;
+    --dash-rose:         #f43f5e;
+    --dash-rose-light:   #fff1f2;
+    --dash-radius:       16px;
+    --dash-radius-sm:    10px;
+    --dash-font:         'DM Sans', system-ui, sans-serif;
+
+    font-family: var(--dash-font);
+    background: var(--dash-bg);
+    min-height: 100vh;
+    padding: 0;
 }
 
-#mod-bancos *,
-#mod-bancos *::before,
-#mod-bancos *::after {
-  box-sizing: border-box;
-}
-
-#mod-bancos.app-view {
-  display: block;
-}
-
-/* ============================================================
-   ENCABEZADO DEL MÓDULO
-   ============================================================ */
-
+/* ---- ENCABEZADO ---- */
 #mod-bancos .module-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 16px;
 }
 
 #mod-bancos .module-header-text h1 {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--bnc-text-head);
-  letter-spacing: -0.4px;
-  margin: 0 0 4px;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--dash-text-head);
+    letter-spacing: -0.4px;
+    margin: 0 0 6px;
 }
 
 #mod-bancos .module-header-text p {
-  font-size: 13.5px;
-  color: var(--bnc-text-sub);
-  margin: 0;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--dash-text-sub);
+    margin: 0;
 }
 
-/* ---------- Botones genéricos ---------- */
-#mod-bancos .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: none;
-  border-radius: 50px;
-  padding: 11px 20px;
-  font-family: var(--bnc-font);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.18s, box-shadow 0.18s, transform 0.12s, color 0.18s;
-  white-space: nowrap;
+/* ---- BOTÓN NUEVO ---- */
+#mod-bancos #btn-add-banco {
+    background: var(--dash-blue);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 30px;
+    color: white;
+    font-weight: 600;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--dash-font);
 }
 
-#mod-bancos .btn:active,
-.modal-footer .btn:active {
-  transform: translateY(0);
+#mod-bancos #btn-add-banco:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(59,130,246,0.2);
 }
 
-#mod-bancos .btn-primary {
-  background: var(--bnc-blue);
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
-}
-
-#mod-bancos .btn-primary:hover {
-  background: var(--bnc-blue-hover);
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
-  transform: translateY(-1px);
-}
-
-/* ============================================================
-   TARJETAS DE ESTADÍSTICAS
-   ============================================================ */
-
+/* ---- STATS ---- */
 #mod-bancos .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    margin-bottom: 28px;
 }
 
 #mod-bancos .stat-card {
-  background: var(--bnc-card);
-  border: 1px solid var(--bnc-border);
-  border-radius: var(--bnc-radius);
-  box-shadow: var(--bnc-shadow);
-  padding: 18px 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
+    background: var(--dash-card);
+    border: 1px solid var(--dash-border);
+    border-radius: var(--dash-radius);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.2s;
+    box-shadow: var(--dash-shadow-sm);
+}
+
+#mod-bancos .stat-card:hover {
+    box-shadow: var(--dash-shadow-md);
+    transform: translateY(-2px);
 }
 
 #mod-bancos .stat-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
+    width: 48px; height: 48px;
+    border-radius: var(--dash-radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
 }
 
-#mod-bancos .stat-icon.blue   { background: var(--bnc-blue-light);   color: var(--bnc-blue); }
-#mod-bancos .stat-icon.green  { background: var(--bnc-green-light);  color: var(--bnc-green); }
-#mod-bancos .stat-icon.yellow { background: var(--bnc-yellow-light); color: var(--bnc-yellow); }
+#mod-bancos .stat-icon.blue   { background: var(--dash-blue-light);  color: var(--dash-blue); }
+#mod-bancos .stat-icon.green  { background: var(--dash-green-light); color: var(--dash-green-dark); }
+#mod-bancos .stat-icon.red    { background: var(--dash-red-light);   color: var(--dash-red); }
+#mod-bancos .stat-icon.yellow { background: var(--dash-amber-light); color: var(--dash-amber); }
+
+#mod-bancos .stat-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+}
 
 #mod-bancos .stat-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--bnc-text-sub);
-  margin-bottom: 2px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--dash-text-muted);
+    margin-bottom: 4px;
 }
 
 #mod-bancos .stat-value {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--bnc-text-head);
-  line-height: 1.1;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--dash-text-head);
+    line-height: 1;
 }
 
-/* ============================================================
-   BARRA DE FILTROS
-   ============================================================ */
-
+/* ---- FILTROS ---- */
 #mod-bancos .filter-bar {
-  background: var(--bnc-card);
-  border: 1px solid var(--bnc-border);
-  border-radius: var(--bnc-radius);
-  box-shadow: var(--bnc-shadow);
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
+    background: var(--dash-card);
+    border: 1px solid var(--dash-border);
+    border-radius: var(--dash-radius-sm);
+    padding: 8px 16px;
+    margin-bottom: 28px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
 }
 
 #mod-bancos .search-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 220px;
+    position: relative;
+    flex: 2;
+    min-width: 220px;
 }
 
 #mod-bancos .search-icon {
-  position: absolute;
-  left: 13px;
-  color: var(--bnc-text-sub);
-  font-size: 13px;
-  pointer-events: none;
+    position: absolute;
+    left: 12px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--dash-text-muted);
+    font-size: 13px;
 }
 
 #mod-bancos .search-input {
-  width: 100%;
-  padding: 10px 14px 10px 36px;
-  border: 1.5px solid var(--bnc-border);
-  border-radius: var(--bnc-radius-sm);
-  font-family: var(--bnc-font);
-  font-size: 13.5px;
-  color: var(--bnc-text-body);
-  background: #fff;
-  outline: none;
-  transition: border-color 0.18s, box-shadow 0.18s;
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    border: 1px solid var(--dash-border);
+    border-radius: 30px;
+    font-family: var(--dash-font);
+    font-size: 13px;
+    outline: none;
+    background: var(--dash-bg);
+    color: var(--dash-text-body);
+    transition: all 0.2s;
 }
-
-#mod-bancos .search-input::placeholder { color: #bcc6d8; }
 
 #mod-bancos .search-input:focus {
-  border-color: var(--bnc-blue);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.10);
+    border-color: var(--dash-blue);
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
 }
 
-#mod-bancos .filter-toggle-group {
-  display: flex;
-  gap: 6px;
-  background: var(--bnc-bg);
-  padding: 4px;
-  border-radius: 10px;
-}
+#mod-bancos .filter-toggle-group { display: flex; gap: 6px; }
 
 #mod-bancos .filter-toggle {
-  border: none;
-  background: transparent;
-  color: var(--bnc-text-sub);
-  font-family: var(--bnc-font);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  white-space: nowrap;
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: #f8fafc;
+    border: 1px solid var(--dash-border);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--dash-font);
+    color: var(--dash-text-sub);
 }
 
-#mod-bancos .filter-toggle:hover { color: var(--bnc-text-head); }
+#mod-bancos .filter-toggle:hover { border-color: var(--dash-blue); }
 
 #mod-bancos .filter-toggle.active {
-  background: #fff;
-  color: var(--bnc-blue);
-  box-shadow: 0 1px 3px rgba(30, 50, 100, 0.12);
+    background: var(--dash-blue);
+    border-color: var(--dash-blue);
+    color: white;
 }
 
 #mod-bancos .btn-clear-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  color: var(--bnc-blue);
-  border: 1.5px solid var(--bnc-border);
-  border-radius: var(--bnc-radius-sm);
-  padding: 9px 14px;
-  font-family: var(--bnc-font);
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s;
+    background: none; border: none;
+    font-size: 11px; font-weight: 600;
+    color: var(--dash-rose); cursor: pointer;
+    padding: 6px 12px; border-radius: 30px;
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--dash-font);
 }
 
-#mod-bancos .btn-clear-filter:hover {
-  background: var(--bnc-blue-light);
-  border-color: var(--bnc-blue);
-}
+#mod-bancos .btn-clear-filter:hover { background: var(--dash-rose-light); }
 
 #mod-bancos .filter-info {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--bnc-text-sub);
-  background: var(--bnc-bg);
-  border-radius: 20px;
-  padding: 6px 12px;
-  white-space: nowrap;
+    font-size: 11px; font-weight: 500;
+    color: var(--dash-text-muted); margin-left: auto;
+    white-space: nowrap;
 }
 
-/* ============================================================
-   TABLA
-   ============================================================ */
-
+/* ---- TABLA ---- */
 #mod-bancos .table-container {
-  background: var(--bnc-card);
-  border: 1px solid var(--bnc-border);
-  border-radius: var(--bnc-radius);
-  box-shadow: var(--bnc-shadow);
-  overflow-x: auto;
+    background: var(--dash-card);
+    border: 1px solid var(--dash-border);
+    border-radius: var(--dash-radius);
+    overflow-x: auto;
 }
 
 #mod-bancos .data-table {
-  width: 100%;
-  border-collapse: collapse;
+    width: 100%; border-collapse: collapse; font-size: 13px;
 }
 
-#mod-bancos .data-table thead th {
-  padding: 12px 20px;
-  text-align: left;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--bnc-text-label);
-  border-bottom: 1px solid var(--bnc-border);
-  white-space: nowrap;
+#mod-bancos .data-table th {
+    text-align: left; padding: 14px 16px;
+    background: #f9fafb; font-weight: 700;
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--dash-text-sub);
+    border-bottom: 1px solid var(--dash-border);
 }
 
-#mod-bancos .data-table tbody tr { transition: background 0.12s; }
-#mod-bancos .data-table tbody tr:hover { background: #f7f9fd; }
-#mod-bancos .data-table tbody tr:last-child td { border-bottom: none; }
-
-#mod-bancos .data-table tbody td {
-  padding: 13px 20px;
-  font-size: 13.5px;
-  color: var(--bnc-text-body);
-  vertical-align: middle;
-  border-bottom: 1px solid #f0f3f8;
+#mod-bancos .data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--dash-border);
+    color: var(--dash-text-body); vertical-align: middle;
 }
+
+#mod-bancos .data-table tr:last-child td { border-bottom: none; }
+#mod-bancos .data-table tbody tr:hover td { background: #fafcff; }
 
 #mod-bancos .text-center { text-align: center; }
 
-/* ---------- Estado vacío ---------- */
+/* La celda de acciones no debe partir los botones en dos líneas */
+#mod-bancos .data-table td.text-center { white-space: nowrap; }
+#mod-bancos .text-right  { text-align: right; }
+
+/* Utilidad genérica para ocultar cualquier elemento */
+.hidden { display: none !important; }
+
+/* ---- BADGES ---- */
+#mod-bancos .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 40px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+}
+
+#mod-bancos .badge::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+}
+
+#mod-bancos .badge-active   { background: var(--dash-green-light); color: var(--dash-green-dark); }
+#mod-bancos .badge-inactive { background: var(--dash-red-light);   color: var(--dash-red); }
+
+#mod-bancos .badge-active::before   { background: var(--dash-green-dark); }
+#mod-bancos .badge-inactive::before { background: var(--dash-red); }
+
+/* ---- BOTONES DE ACCIÓN EN TABLA ---- */
+#mod-bancos .btn-icon-sm {
+    background: transparent; border: none;
+    padding: 5px 10px; border-radius: 30px;
+    font-size: 11px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--dash-font);
+    margin: 0 2px;
+}
+
+#mod-bancos .btn-icon-sm.view   { background: var(--dash-blue-light);  color: var(--dash-blue); }
+#mod-bancos .btn-icon-sm.toggle { background: var(--dash-green-light); color: var(--dash-green-dark); }
+#mod-bancos .btn-icon-sm.edit   { background: var(--dash-amber-light); color: var(--dash-amber); }
+#mod-bancos .btn-icon-sm.reject { background: var(--dash-rose-light);  color: var(--dash-rose); }
+#mod-bancos .btn-icon-sm:hover  { transform: translateY(-1px); filter: brightness(0.95); }
+
+/* ---- ESTADO VACÍO ---- */
+#mod-bancos .empty-row td { text-align: center; padding: 48px !important; }
+
 #mod-bancos .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 52px 24px;
-  color: var(--bnc-text-sub);
+    text-align: center; background: transparent; border: none;
 }
 
 #mod-bancos .empty-state i {
-  font-size: 30px;
-  color: #c8d3e8;
-  margin-bottom: 4px;
+    font-size: 48px; color: var(--dash-text-muted);
+    opacity: 0.4; margin-bottom: 16px; display: block;
 }
 
 #mod-bancos .empty-state p {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--bnc-text-body);
-  margin: 0;
+    font-weight: 600; color: var(--dash-text-sub); margin-bottom: 4px;
 }
 
 #mod-bancos .empty-state span {
-  font-size: 12.5px;
-  color: var(--bnc-text-sub);
+    font-size: 12px; color: var(--dash-text-muted);
 }
 
-/* ---------- Badges ---------- */
-#mod-bancos .badge {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
+/* ---- BOTONES GENÉRICOS ---- */
+#mod-bancos .btn,
+.modal-footer .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 22px; border-radius: 30px;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    border: none; text-transform: none; letter-spacing: 0;
 }
 
-#mod-bancos .badge-active   { background: var(--bnc-green-light); color: var(--bnc-green); }
-#mod-bancos .badge-inactive { background: var(--bnc-yellow-light); color: var(--bnc-yellow); }
+#mod-bancos .btn-primary,
+.modal-footer .btn-primary { background: #3b82f6; color: white; }
 
-/* ---------- Botones de acción en filas ---------- */
-#mod-bancos .btn-icon-sm {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: none;
-  background: transparent;
-  color: var(--bnc-text-sub);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: background 0.13s, color 0.13s;
+#mod-bancos .btn-primary:hover,
+.modal-footer .btn-primary:hover { background: #2563eb; }
+
+#mod-bancos .btn-success,
+.modal-footer .btn-success { background: #2d8653; color: white; }
+
+#mod-bancos .btn-success:hover,
+.modal-footer .btn-success:hover { background: #1e5c3a; }
+
+#mod-bancos .btn-secondary,
+.modal-footer .btn-secondary {
+    background: #f1f5f9; color: #475569;
+    border: 1.5px solid #c4c9d4;
 }
 
-#mod-bancos .btn-icon-sm:hover { background: var(--bnc-bg); color: var(--bnc-text-head); }
+#mod-bancos .btn-secondary:hover,
+.modal-footer .btn-secondary:hover { background: #e2e8f0; }
 
-#mod-bancos .btn-icon-sm.edit         { color: var(--bnc-blue); }
-#mod-bancos .btn-icon-sm.edit:hover   { background: var(--bnc-blue-light); color: var(--bnc-blue-hover); }
+#mod-bancos .btn-danger,
+.modal-footer .btn-danger { background: #ef4444; color: white; }
 
-#mod-bancos .btn-icon-sm.reject       { color: var(--bnc-red); }
-#mod-bancos .btn-icon-sm.reject:hover { background: var(--bnc-red-light); color: #b91c1c; }
+#mod-bancos .btn-danger:hover,
+.modal-footer .btn-danger:hover { background: #dc2626; }
 
-#mod-bancos .btn-icon-sm.toggle       { color: var(--bnc-yellow); }
-#mod-bancos .btn-icon-sm.toggle:hover { background: var(--bnc-yellow-light); color: #d97706; }
-
-/* ============================================================
-   MODALES (NUEVO / EDITAR BANCO)
-   Nota: estos bloques quedan fuera de #mod-bancos en el HTML,
-   por eso sus estilos NO están anidados bajo ese id.
-   ============================================================ */
-
+/* ============================================
+   MODALES
+   ============================================ */
 .modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(13, 27, 46, 0.45);
-  backdrop-filter: blur(3px);
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  font-family: var(--bnc-font);
-  animation: bncFadeIn 0.18s ease;
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(3px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 1rem;
 }
 
-@keyframes bncFadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes bncSlideUp {
-  from { opacity: 0; transform: translateY(18px) scale(.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
+.modal-overlay.hidden { display: none; }
 
 .modal-box {
-  background: #fff;
-  border-radius: var(--bnc-radius-lg);
-  box-shadow: 0 24px 64px rgba(13, 27, 46, .18);
-  width: 100%;
-  max-width: 520px;
-  max-height: 95vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: bncSlideUp .22s cubic-bezier(.22,.68,0,1.15);
+    background: white; width: 100%;
+    max-width: 620px; max-height: 90vh;
+    border-radius: 24px;
+    box-shadow: 0 20px 35px -10px rgba(0,0,0,0.2);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    animation: fadeIn 0.2s ease;
+    font-family: 'DM Sans', system-ui, sans-serif;
 }
 
 .modal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 22px 26px 16px;
-  border-bottom: 1px solid var(--bnc-border);
-  flex-shrink: 0;
+    padding: 18px 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-shrink: 0;
 }
 
-.modal-header.green {
-  background: var(--bnc-green);
-  border-bottom-color: rgba(255, 255, 255, 0.18);
-}
-.modal-header.blue {
-  background: var(--bnc-blue);
-  border-bottom-color: rgba(255, 255, 255, 0.18);
-}
+.modal-header.green { background: #2d8653; color: white; }
+.modal-header.blue  { background: #3b82f6; color: white; }
 
 .modal-header h2 {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--bnc-text-head);
-  margin: 0 0 3px;
+    font-size: 18px; font-weight: 700; margin: 0;
+    font-family: 'DM Sans', system-ui, sans-serif;
 }
 
 .modal-header p {
-  font-size: 12.5px;
-  color: var(--bnc-text-sub);
-  margin: 0;
-}
-
-.modal-header.green h2,
-.modal-header.blue h2 {
-  color: #fff;
-}
-
-.modal-header.green p,
-.modal-header.blue p {
-  color: rgba(255, 255, 255, 0.85);
+    font-size: 12px; opacity: 0.85; margin-top: 4px;
+    font-family: 'DM Sans', system-ui, sans-serif;
 }
 
 .modal-close {
-  width: 32px;
-  height: 32px;
-  border: 1.5px solid var(--bnc-border);
-  border-radius: 8px;
-  background: #fff;
-  color: var(--bnc-text-sub);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: background 0.14s, color 0.14s, border-color 0.14s;
+    background: rgba(255,255,255,0.2); border: none;
+    width: 32px; height: 32px; border-radius: 50%;
+    font-size: 16px; cursor: pointer; color: white;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: background 0.2s;
 }
 
-.modal-close:hover { background: #f4f6fb; color: var(--bnc-text-head); }
-
-.modal-header.green .modal-close,
-.modal-header.blue .modal-close {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.4);
-  color: #fff;
-}
-
-.modal-header.green .modal-close:hover,
-.modal-header.blue .modal-close:hover {
-  background: rgba(255, 255, 255, 0.28);
-  color: #fff;
-}
+.modal-close:hover { background: rgba(255,255,255,0.35); }
 
 .modal-body {
-  padding: 20px 26px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  overflow-y: auto;
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    position: relative;
 }
 
-.form-field { display: flex; flex-direction: column; gap: 5px; }
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e9edf2;
+    display: flex; justify-content: flex-end;
+    gap: 12px; background: #ffffff; flex-shrink: 0;
+}
+
+/* ============================================
+   FORMULARIOS
+   ============================================ */
+.form-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; margin-bottom: 16px;
+}
+
+.form-field {
+    display: flex; flex-direction: column; margin-bottom: 16px;
+}
 
 .form-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .6px;
-  text-transform: uppercase;
-  color: var(--bnc-text-label);
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; color: #64748b;
+    margin-bottom: 6px; letter-spacing: 0.5px;
+    font-family: 'DM Sans', system-ui, sans-serif;
 }
 
-.form-label .required { color: var(--bnc-red); margin-left: 2px; }
+.required { color: #ef4444; margin-left: 2px; }
 
-.form-input, .form-select {
-  padding: 10px 14px;
-  border: 1.5px solid var(--bnc-border);
-  border-radius: var(--bnc-radius-sm);
-  font-family: var(--bnc-font);
-  font-size: 13.5px;
-  color: var(--bnc-text-body);
-  background: #fff;
-  outline: none;
-  width: 100%;
-  transition: border-color 0.18s, box-shadow 0.18s;
+.form-input {
+    width: 100%;
+    padding: 11px 16px;
+    height: 44px;
+    border: 1.5px solid #b2d8c4;
+    border-radius: 50px;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 13px;
+    outline: none;
+    background: #ffffff;
+    color: #1e293b;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    appearance: none;
+}
+
+.form-input:hover {
+    background: #edf7f2;
+    border-color: #7ecba4;
+}
+
+.form-input:focus {
+    background: #edf7f2;
+    border-color: #2d8653;
+    box-shadow: 0 0 0 3px rgba(45, 134, 83, 0.12);
+}
+
+.form-input::placeholder { color: #b0b8c9; }
+
+.form-input:disabled {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
 }
 
 .form-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238494b2' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 12px center;
-  cursor: pointer;
-  padding-right: 34px;
+    width: 100%;
+    height: 44px;
+    padding: 11px 16px;
+    border: 1.5px solid #b2d8c4;
+    border-radius: 50px;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 13px;
+    color: #1e293b;
+    background: #ffffff;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
 
-.form-input::placeholder { color: #bcc6d8; }
-
-.form-input:focus, .form-select:focus {
-  border-color: var(--bnc-blue);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, .10);
+.form-select:hover {
+    background: #edf7f2;
+    border-color: #7ecba4;
 }
 
-.form-input:disabled {
-  background: #f4f6fb;
-  color: var(--bnc-text-label);
-  cursor: not-allowed;
+.form-select:focus {
+    background: #edf7f2;
+    border-color: #2d8653;
+    box-shadow: 0 0 0 3px rgba(45, 134, 83, 0.12);
 }
 
 .field-error {
-  display: none;
-  font-size: 11.5px;
-  color: var(--bnc-red);
-  font-weight: 500;
-  margin-top: 1px;
+    font-size: 11px; color: #ef4444; margin-top: 4px;
+    display: block; max-height: 0; overflow: hidden;
+    transition: max-height 0.2s;
 }
 
-.field-error.visible { display: block; }
+.field-error.visible { max-height: 3rem; }
 
-.modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 16px 26px 22px;
-  border-top: 1px solid var(--bnc-border);
-  flex-shrink: 0;
+.field-hint {
+    font-size: 11px; color: #94a3b8; margin-top: 6px;
+    line-height: 1.45;
 }
 
-.modal-footer .btn-secondary {
-  background: transparent;
-  border: none;
-  color: var(--bnc-text-sub);
-  font-family: var(--bnc-font);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 10px 18px;
-  border-radius: 50px;
-  transition: color .15s, background .15s;
+.section-title {
+    font-size: 11px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: #64748b; margin: 20px 0 12px;
+    padding-bottom: 8px; border-bottom: 2px solid #e9edf2;
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'DM Sans', system-ui, sans-serif;
 }
 
-.modal-footer .btn-secondary:hover { background: #f4f6fb; color: var(--bnc-text-body); }
-
-.modal-footer .btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: var(--bnc-blue);
-  color: #fff;
-  border: none;
-  border-radius: 50px;
-  padding: 11px 20px;
-  font-family: var(--bnc-font);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, .35);
-  transition: background .18s, box-shadow .18s, transform .12s;
-}
-
-.modal-footer .btn-primary:hover {
-  background: var(--bnc-blue-hover);
-  box-shadow: 0 6px 18px rgba(37, 99, 235, .45);
-  transform: translateY(-1px);
-}
-
-/* ============================================================
-   TOAST
-   ============================================================ */
-
+/* ---- TOAST ---- */
 #toast {
-  position: fixed;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #0f172a;
-  color: #fff;
-  font-family: var(--bnc-font);
-  font-size: 13.5px;
-  font-weight: 500;
-  padding: 12px 22px;
-  border-radius: 50px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, .22);
-  z-index: 10000;
-  white-space: nowrap;
+    position: fixed; bottom: 20px; right: 20px;
+    background: #0f172a; color: white;
+    padding: 12px 20px; border-radius: 40px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 500;
+    z-index: 1100; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    animation: slideIn 0.3s ease;
 }
 
-/* ============================================================
-   UTILIDADES
-   ============================================================ */
+#toast.hidden { display: none; }
 
-.hidden { display: none !important; }
-
-/* ---------- Foco accesible ---------- */
-#mod-bancos button:focus-visible,
-.modal-overlay button:focus-visible {
-  outline: 2px solid var(--bnc-blue);
-  outline-offset: 2px;
+/* ---- ANIMACIONES ---- */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
 }
 
-#mod-bancos input:focus-visible,
-#mod-bancos select:focus-visible,
-.modal-overlay input:focus-visible,
-.modal-overlay select:focus-visible {
-  outline: none;
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
 }
 
-/* ============================================================
-   RESPONSIVO
-   ============================================================ */
+/* ---- RESPONSIVE ---- */
+@media (max-width: 900px) {
+    #mod-bancos { padding: 20px; }
+    #mod-bancos .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #mod-bancos .filter-bar { flex-direction: column; align-items: stretch; }
+    #mod-bancos .filter-info { margin-left: 0; text-align: center; }
+    .form-grid { grid-template-columns: 1fr; }
+}
 
 @media (max-width: 768px) {
-  #mod-bancos .module-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  #mod-bancos .filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  #mod-bancos .search-wrapper { min-width: 100%; }
-
-  #mod-bancos .filter-toggle-group { justify-content: space-between; }
-
-  #mod-bancos .btn-clear-filter { justify-content: center; }
-
-  #mod-bancos .data-table thead th,
-  #mod-bancos .data-table tbody td {
-    padding: 10px 12px;
-    font-size: 12.5px;
-  }
-
-  .modal-box { max-width: 100%; }
+    #mod-bancos .stats-grid { grid-template-columns: 1fr; }
+    .modal-box { width: 95vw; max-width: 95vw; }
 }

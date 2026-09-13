@@ -145,7 +145,7 @@ $facturas = $list_cuentasxpagar->fetchAll(PDO::FETCH_ASSOC);
 ob_start();
 ?>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-
+<link rel="stylesheet" href="modules/tescxp/css/cuentasxpagar.css">
 <div id="mod-cuentasxpagar" class="app-view active">
 
     <!-- ENCABEZADO -->
@@ -372,6 +372,9 @@ ob_start();
 <script>
 const facturasData = <?= json_encode(array_values($facturas), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
 </script>
+
+<!-- SCRIPTS JS -->
+<script src="modules/tescxp/js/cuentasxpagar.js"></script>
 
 <?php
 $moduleContent = ob_get_clean();

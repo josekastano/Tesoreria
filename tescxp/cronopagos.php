@@ -5,8 +5,8 @@ $activeModule     = 'tescxp';
 $page_title       = "ADSOERP | Cronograma de Pagos";
 $page_description = "Programación de pagos agrupando cuotas pendientes de facturas";
 $page_icon        = "bi-calendar2-check";
-$page_extra_css   = ["../modules/tescxp/css/cronopagos.css"];
-$page_extra_js    = ["../modules/tescxp/js/cronopagos.js"];
+$page_extra_css   = ["../modules/tescxp/css/cronograma.css"];
+$page_extra_js    = ["../modules/tescxp/js/cronograma.js"];
 $show_welcome     = false;
 // ==========================================
 
@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Cronograma no válido.');
             }
 
-            $list_det_cronopagos->execute([':id_cronograma' => $id_cronograma]);
+            $list_det_cronopagos->execute([':wid_cronograma' => $id_cronograma]);
             $detalle = $list_det_cronopagos->fetchAll(PDO::FETCH_ASSOC);
 
             $respuesta['success'] = true;
@@ -223,8 +223,8 @@ $cuotas_pendientes = $list_cuotas_pendientes->fetchAll(PDO::FETCH_ASSOC);
 ob_start();
 ?>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-
-<div id="mod-cronopagos" class="app-view active">
+<link rel="stylesheet" href="modules/tescxp/css/cronopagos.css">
+<div id="mod-cronograma" class="app-view active">
 
     <!-- ENCABEZADO -->
     <div class="module-header">
@@ -519,6 +519,9 @@ const cronogramasData = <?= json_encode(array_values($cronogramas), JSON_HEX_TAG
 
 <!-- TOAST -->
 <div id="toast" class="hidden"><span id="toast-message"></span></div>
+
+<!-- SCRIPTS JS -->
+<script src="modules/tescxp/js/cronopagos.js"></script>
 
 <?php
 $moduleContent = ob_get_clean();

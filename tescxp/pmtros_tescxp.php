@@ -4,9 +4,9 @@ $pageTitle        = 'ERP ADSO — Tesorería';
 $activeModule     = 'tescxp';
 $page_title       = "ADSOERP | Parámetros de Tesorería";
 $page_description = "Configuración general de días de pago y reembolsos de caja menor";
-$page_icon        = "bi-gear";
-$page_extra_css   = ["../modules/tescxp/css/pmtros_tescxp.css"];
-$page_extra_js    = ["../modules/tescxp/js/pmtros_tescxp.js"];
+$page_icon        = "bi-sliders";
+$page_extra_css   = ["../modules/tescxp/css/parametros.css"];
+$page_extra_js    = ["../modules/tescxp/js/parametros.js"];
 $show_welcome     = false;
 // ==========================================
 
@@ -139,160 +139,211 @@ $list_pmtros_tescxp->execute();
 $pmtros = $list_pmtros_tescxp->fetch(PDO::FETCH_ASSOC);
 $existe_pmtros = $pmtros !== false;
 
+$dias_sel = array_values(array_filter([
+    (int)($pmtros['fec_diapago1'] ?? 0),
+    (int)($pmtros['fec_diapago2'] ?? 0),
+    (int)($pmtros['fec_diapago3'] ?? 0),
+]));
+
+$dias_definidos = count($dias_sel);
+
+$dias_nombres = $dias_definidos
+    ? implode(' · ', array_map(fn($n) => DIAS_SEMANA[$n] ?? '', $dias_sel))
+    : 'Sin definir';
+
+$min_reembolso_val = (float)($pmtros['val_min_reembolso'] ?? 0);
+
+// Razón social (si Parámetros Generales la expone)
+$nom_empresa = $pmtros_grales['nom_empresa']
+    ?? $pmtros_grales['des_empresa']
+    ?? $pmtros_grales['nombre_empresa']
+    ?? '';
+
 // ============================================================
 // INICIO DEL HTML
 // ============================================================
 ob_start();
 ?>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-
+<link rel="stylesheet" href="modules/tescxp/css/pmtros_tescxp.css">
 <div id="mod-pmtros-tescxp" class="app-view active">
 
     <!-- ENCABEZADO -->
     <div class="module-header">
         <div class="module-header-text">
             <h1>Parámetros de Tesorería</h1>
-            <p>Configuración general de días de pago y reembolso de caja menor</p>
+            <p>Días de pago a proveedores y monto mínimo de reembolso de caja menor</p>
         </div>
     </div>
 
-    <!-- KPIs -->
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-icon <?= $existe_pmtros ? 'green' : 'yellow' ?>">
-                <i class="fas <?= $existe_pmtros ? 'fa-check-circle' : 'fa-exclamation-circle' ?>"></i>
-            </div>
-            <div class="stat-info">
-                <div class="stat-label">Estado</div>
-                <div class="stat-value" id="kpi-estado" style="font-size:16px"><?= $existe_pmtros ? 'Configurado' : 'Sin configurar' ?></div>
+    <?php if (empty($id_empresa_fijo)): ?>
+
+        <!-- SIN EMPRESA CONFIGURADA -->
+        <div class="table-container">
+            <div class="empty-state">
+                <i class="fas fa-building"></i>
+                <p>No hay una empresa registrada</p>
+                <span>Configure la empresa en Parámetros Generales antes de definir estos parámetros</span>
             </div>
         </div>
-        <div class="stat-card">
-            <div class="stat-icon blue"><i class="fas fa-calendar-week"></i></div>
-            <div class="stat-info">
-                <div class="stat-label">Días de pago definidos</div>
-                <div class="stat-value" id="kpi-dias">
-                    <?php
-                    $dias_definidos = count(array_filter([
-                        $pmtros['fec_diapago1'] ?? null,
-                        $pmtros['fec_diapago2'] ?? null,
-                        $pmtros['fec_diapago3'] ?? null,
-                    ]));
-                    echo $dias_definidos . '/3';
-                    ?>
+
+    <?php else: ?>
+
+    <div class="pmt-pg">
+
+        <!-- ================= PANEL IZQUIERDO: RESUMEN ================= -->
+        <div class="pmt-panel-l">
+            <div class="pmt-cc">
+
+                <div class="pmt-cc-top">
+                    <span class="pmt-badge-act">Empresa activa</span>
                 </div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon yellow"><i class="fas fa-coins"></i></div>
-            <div class="stat-info">
-                <div class="stat-label">Reembolso mínimo actual</div>
-                <div class="stat-value" id="kpi-reembolso">$<?= number_format((float)($pmtros['val_min_reembolso'] ?? 0), 0, ',', '.') ?></div>
-            </div>
-        </div>
-    </div>
 
-    <!-- FORMULARIO DE CONFIGURACIÓN -->
-    <form id="pmtros-form" novalidate>
-        <input type="hidden" name="btn_guardar" value="1">
-        <input type="hidden" name="hid_existe" id="hid-existe" value="<?= $existe_pmtros ? '1' : '0' ?>">
+                <div class="pmt-cc-body">
+                    <div class="pmt-cc-nit">NIT <?= htmlspecialchars($id_empresa_fijo) ?></div>
+                    <div class="pmt-cc-name"><?= htmlspecialchars($nom_empresa !== '' ? $nom_empresa : 'Empresa registrada') ?></div>
 
-        <div class="config-grid">
+                    <div class="pmt-cc-stats">
 
-            <!-- COLUMNA PRINCIPAL: DÍAS DE PAGO -->
-            <div class="config-card span-8">
-                <h3><i class="fas fa-calendar-week"></i> Días de Pago Programados</h3>
-                <p class="config-hint">Seleccione los 3 días de la semana en los que la empresa programa sus pagos a proveedores.</p>
-
-                <div class="week-strip" id="week-strip">
-                    <?php
-                    $dias_corto = [1 => 'L', 2 => 'M', 3 => 'M', 4 => 'J', 5 => 'V', 6 => 'S'];
-                    $seleccionados = array_filter([
-                        (int)($pmtros['fec_diapago1'] ?? 0),
-                        (int)($pmtros['fec_diapago2'] ?? 0),
-                        (int)($pmtros['fec_diapago3'] ?? 0),
-                    ]);
-                    foreach ($dias_corto as $num => $letra):
-                        $activo = in_array($num, $seleccionados);
-                    ?>
-                        <div class="week-day <?= $activo ? 'active' : '' ?>" data-dia="<?= $num ?>">
-                            <span class="week-day-letter"><?= $letra ?></span>
-                            <span class="week-day-name"><?= DIAS_SEMANA[$num] ?></span>
+                        <div class="pmt-cc-stat">
+                            <div class="pmt-cc-stat-label">Días de pago</div>
+                            <div class="pmt-cc-stat-value" id="kpi-dias"><?= $dias_definidos ?>/3</div>
                         </div>
-                    <?php endforeach; ?>
+
+                        <div class="pmt-cc-stat">
+                            <div class="pmt-cc-stat-label">Estado</div>
+                            <div class="pmt-cc-status <?= $existe_pmtros ? 'ok' : 'pend' ?>">
+                                <span class="pmt-cc-status-ico <?= $existe_pmtros ? 'green' : 'amber' ?>" id="stat-estado-icon">
+                                    <i class="fas <?= $existe_pmtros ? 'fa-check-circle' : 'fa-exclamation-triangle' ?>"></i>
+                                </span>
+                                <span id="kpi-estado"><?= $existe_pmtros ? 'Configurada' : 'Sin configurar' ?></span>
+                            </div>
+                        </div>
+
+                        <div class="pmt-cc-stat pmt-cc-stat-wide">
+                            <div class="pmt-cc-stat-label">Reembolso mínimo de caja menor</div>
+                            <div class="pmt-cc-stat-value" id="kpi-reembolso">$<?= number_format($min_reembolso_val, 0, ',', '.') ?></div>
+                        </div>
+
+                        <div class="pmt-cc-stat pmt-cc-stat-wide">
+                            <div class="pmt-cc-stat-label">Días programados</div>
+                            <div class="pmt-cc-stat-days" id="kpi-dias-nombres"><?= htmlspecialchars($dias_nombres) ?></div>
+                        </div>
+
+                    </div>
                 </div>
 
-                <div class="form-grid-3">
-                    <div class="form-field">
-                        <label class="form-label">Día de Pago #1 <span class="required">*</span></label>
-                        <select id="diapago1" name="sel_diapago1" class="form-select diapago-select">
-                            <option value="">Seleccione...</option>
-                            <?php foreach (DIAS_SEMANA as $num => $nombre): ?>
-                                <option value="<?= $num ?>" <?= (int)($pmtros['fec_diapago1'] ?? 0) === $num ? 'selected' : '' ?>><?= $nombre ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <span class="field-error" id="err-diapago1"></span>
-                    </div>
-                    <div class="form-field">
-                        <label class="form-label">Día de Pago #2 <span class="required">*</span></label>
-                        <select id="diapago2" name="sel_diapago2" class="form-select diapago-select">
-                            <option value="">Seleccione...</option>
-                            <?php foreach (DIAS_SEMANA as $num => $nombre): ?>
-                                <option value="<?= $num ?>" <?= (int)($pmtros['fec_diapago2'] ?? 0) === $num ? 'selected' : '' ?>><?= $nombre ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <span class="field-error" id="err-diapago2"></span>
-                    </div>
-                    <div class="form-field">
-                        <label class="form-label">Día de Pago #3 <span class="required">*</span></label>
-                        <select id="diapago3" name="sel_diapago3" class="form-select diapago-select">
-                            <option value="">Seleccione...</option>
-                            <?php foreach (DIAS_SEMANA as $num => $nombre): ?>
-                                <option value="<?= $num ?>" <?= (int)($pmtros['fec_diapago3'] ?? 0) === $num ? 'selected' : '' ?>><?= $nombre ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <span class="field-error" id="err-diapago3"></span>
+                <div class="pmt-cc-foot">
+                    <div class="pmt-cc-meta">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Los pagos a proveedores solo se programan en los días definidos aquí.</span>
                     </div>
                 </div>
+
+            </div>
+        </div>
+
+        <!-- ================= PANEL DERECHO: FORMULARIO ================= -->
+        <div class="pmt-panel-r">
+
+            <div class="pmt-cfg-header">
+                <div class="pmt-cfg-icon"><i class="fas fa-sliders-h"></i></div>
+                <h2 class="pmt-cfg-title">Configurar Parámetros</h2>
+                <p class="pmt-cfg-sub">Parámetros de tesorería · NIT <?= htmlspecialchars($id_empresa_fijo) ?></p>
             </div>
 
-            <!-- COLUMNA LATERAL: EMPRESA + CAJA MENOR -->
-            <div class="config-side span-4">
-                <div class="config-card">
-                    <h3><i class="fas fa-building"></i> Empresa</h3>
-                    <div class="form-field">
-                        <label class="form-label">NIT de la Empresa</label>
-                        <input type="text" id="id-empresa" class="form-input" value="<?= htmlspecialchars($id_empresa_fijo) ?>" disabled>
+            <div class="pmt-card">
+
+                <form id="pmtros-form" novalidate>
+                    <input type="hidden" name="btn_guardar" value="1">
+                    <input type="hidden" name="hid_existe" id="hid-existe" value="<?= $existe_pmtros ? '1' : '0' ?>">
+
+                    <div class="pmt-body">
+
+                        <div class="pmt-fg">
+                            <label class="pmt-fl">Días de pago programados</label>
+
+                            <div class="week-strip" id="week-strip">
+                                <?php
+                                $dias_corto = [1 => 'L', 2 => 'M', 3 => 'M', 4 => 'J', 5 => 'V', 6 => 'S'];
+                                foreach ($dias_corto as $num => $letra):
+                                    $activo = in_array($num, $dias_sel);
+                                ?>
+                                    <div class="week-day <?= $activo ? 'active' : '' ?>" data-dia="<?= $num ?>">
+                                        <span class="week-day-letter"><?= $letra ?></span>
+                                        <span class="week-day-name"><?= DIAS_SEMANA[$num] ?></span>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+
+                            <div class="form-grid-3">
+                                <?php for ($i = 1; $i <= 3; $i++): ?>
+                                    <div class="form-field">
+                                        <label class="form-label" for="diapago<?= $i ?>">
+                                            Día #<?= $i ?> <span class="required">*</span>
+                                        </label>
+                                        <select id="diapago<?= $i ?>" name="sel_diapago<?= $i ?>" class="form-select diapago-select">
+                                            <option value="">Seleccione...</option>
+                                            <?php foreach (DIAS_SEMANA as $num => $nombre): ?>
+                                                <option value="<?= $num ?>" <?= (int)($pmtros['fec_diapago' . $i] ?? 0) === $num ? 'selected' : '' ?>><?= $nombre ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <span class="field-error" id="err-diapago<?= $i ?>"></span>
+                                    </div>
+                                <?php endfor; ?>
+                            </div>
+
+                            <p class="field-hint">Los tres días deben ser diferentes entre sí.</p>
+                        </div>
+
+                        <div class="pmt-fg">
+                            <label class="pmt-fl" for="min-reembolso">Valor mínimo de reembolso de caja menor</label>
+                            <div class="input-money">
+                                <span class="money-prefix">$</span>
+                                <input type="number" id="min-reembolso" name="txt_min_reembolso" class="form-input"
+                                       placeholder="50000" min="0" max="99999999" step="1"
+                                       value="<?= htmlspecialchars($pmtros['val_min_reembolso'] ?? '0') ?>">
+                            </div>
+                            <span class="field-error" id="err-min-reembolso"></span>
+                            <p class="field-hint">Monto a partir del cual se habilita la creación de una nueva caja menor.</p>
+                        </div>
+
                         <span class="field-error" id="err-id-empresa"></span>
-                        <p class="field-hint">Definido en Parámetros Generales. No se puede modificar desde aquí.</p>
+
+                        <div class="pmt-hint">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Seleccione los 3 días de la semana en los que la empresa programa sus pagos a proveedores. El NIT proviene de Parámetros Generales y no se modifica desde aquí.</span>
+                        </div>
+
                     </div>
+                </form>
+
+                <div class="pmt-form-footer">
+                    <div class="pmt-chg-ind" id="pmt-chg-ind">Cambios sin guardar</div>
+                    <button type="button" class="pmt-btn-secondary" id="btn-reset-pmtros">Restablecer</button>
+                    <button type="button" class="pmt-btn-primary" id="btn-guardar-pmtros" disabled>
+                        <i class="fas fa-save"></i> Guardar cambios
+                    </button>
                 </div>
 
-                <div class="config-card">
-                    <h3><i class="fas fa-coins"></i> Caja Menor</h3>
-                    <div class="form-field">
-                        <label class="form-label">Valor Mínimo de Reembolso <span class="required">*</span></label>
-                        <input type="number" id="min-reembolso" name="txt_min_reembolso" class="form-input"
-                               placeholder="Ej: 50000" min="0" max="99999999" step="1"
-                               value="<?= htmlspecialchars($pmtros['val_min_reembolso'] ?? '0') ?>">
-                        <span class="field-error" id="err-min-reembolso"></span>
-                        <p class="field-hint">Monto a partir del cual se habilita la creación de una nueva caja menor.</p>
-                    </div>
-                </div>
             </div>
-
         </div>
 
-        <div class="config-actions">
-            <button type="button" id="btn-guardar-pmtros" class="btn btn-primary btn-lg">
-                <i class="fas fa-save"></i> <?= $existe_pmtros ? 'Actualizar Parámetros' : 'Guardar Parámetros' ?>
-            </button>
-        </div>
-    </form>
+    </div>
+
+    <?php endif; ?>
+
 </div>
 
 <!-- TOAST -->
-<div id="toast" class="hidden"><span id="toast-message"></span></div>
+<div id="toast" class="hidden">
+    <i class="fas fa-check-circle"></i>
+    <span id="toast-message"></span>
+</div>
+
+<!-- SCRIPTS JS -->
+<script src="modules/tescxp/js/pmtros_tescxp.js"></script>
+
 
 <?php
 $moduleContent = ob_get_clean();

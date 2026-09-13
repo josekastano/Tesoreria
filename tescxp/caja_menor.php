@@ -237,7 +237,7 @@ $cajas = $list_enc_caja_menor->fetchAll(PDO::FETCH_ASSOC);
 ob_start();
 ?>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-
+<link rel="stylesheet" href="modules/tescxp/css/caja_menor.css">
 <div id="mod-caja-menor" class="app-view active">
 
     <!-- ENCABEZADO -->
@@ -348,8 +348,8 @@ ob_start();
                         <small style="color:#94a3b8;font-size:11px">#<?= $id_caja_esc ?> — <?= $pct_disp ?>% disponible</small>
                     </td>
                     <td><?= htmlspecialchars(date('d/m/Y', strtotime($c['fecha_apertura']))) ?></td>
-                    <td>$<?= number_format((float)$c['monto_asignado'], 0, ',', '.') ?></td>
-                    <td>$<?= number_format((float)$c['monto_disponible'], 0, ',', '.') ?></td>
+                    <td class="text-right">$<?= number_format((float)$c['monto_asignado'], 0, ',', '.') ?></td>
+                    <td class="text-right">$<?= number_format((float)$c['monto_disponible'], 0, ',', '.') ?></td>
                     <td class="text-center"><?= $badge ?></td>
                     <td class="text-center" onclick="event.stopPropagation()">
                         <button class="btn-icon-sm edit" onclick='openEditModal(<?= json_encode($c) ?>)' title="Editar nombre">
@@ -485,6 +485,9 @@ ob_start();
 
 <!-- TOAST -->
 <div id="toast" class="hidden"><span id="toast-message"></span></div>
+
+<!-- SCRIPTS JS -->
+<script src="modules/tescxp/js/caja_menor.js"></script>
 
 <?php
 $moduleContent = ob_get_clean();
