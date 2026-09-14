@@ -390,6 +390,7 @@ function initCajaModule() {
         const form = document.getElementById('new-mov-form');
         clearAllFieldErrors('mov');
         const formData = new FormData(form);
+        const idCaja = formData.get('hid_mov_id_caja');
 
         try {
             const response = await fetch(window.location.href, { method: 'POST', body: formData });
@@ -399,7 +400,14 @@ function initCajaModule() {
 
             if (result.success) {
                 showToast(result.message, 'success');
-                location.reload();
+                // No recargamos toda la página: eso cerraba el modal antes de
+                // que se alcanzara a ver la confirmación. En vez de eso,
+                // limpiamos el formulario y refrescamos solo la lista de
+                // movimientos, dejando el modal abierto.
+                setVal('mov-concepto', '');
+                setVal('mov-valor', '');
+                setVal('mov-fecha', new Date().toISOString().slice(0, 10));
+                loadMovimientos(idCaja);
             } else if (result.errors && Object.keys(result.errors).length > 0) {
                 Object.entries(result.errors).forEach(([spanId, mensaje]) => showFieldError(spanId, mensaje));
             } else {

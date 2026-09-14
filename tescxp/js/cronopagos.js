@@ -69,6 +69,9 @@ function switchView(view) {
     document.getElementById('view-tabla')?.classList.toggle('active', view === 'tabla');
     document.getElementById('view-calendario')?.classList.toggle('active', view === 'calendario');
 
+    // La barra de búsqueda y filtros solo aplica a la tabla
+    document.getElementById('mod-cronograma')?.classList.toggle('vista-calendario', view === 'calendario');
+
     if (view === 'calendario') {
         renderCalendar();
     }
@@ -77,10 +80,14 @@ function switchView(view) {
 // ============================================================
 // 2.1 CALENDARIO DE CRONOGRAMAS
 // ============================================================
-let calCurrentYear  = new Date().getFullYear();
-let calCurrentMonth = new Date().getMonth(); // 0-11
+let calCurrentYear   = new Date().getFullYear();
+let calCurrentMonth  = new Date().getMonth(); // 0-11
+let calSelectedDate  = new Date().toISOString().slice(0, 10);
+let calPrimerRender  = true;
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const MESES_CORTO = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 function getCronogramasPorFecha() {
     const mapa = {};
@@ -93,64 +100,159 @@ function getCronogramasPorFecha() {
     return mapa;
 }
 
+function estaPagado(crono) {
+    return crono.ind_estado === 't' || crono.ind_estado === true;
+}
+
+function fechaISO(anio, mes, dia) {
+    return `${anio}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+}
+
+// ---- Panel izquierdo: el día seleccionado y sus cronogramas ----
+function renderSidePanel() {
+    const [anio, mes, dia] = calSelectedDate.split('-').map(Number);
+    const fecha = new Date(anio, mes - 1, dia);
+
+    setText('cal-sel-day', String(dia).padStart(2, '0'));
+    setText('cal-sel-weekday', DIAS_SEMANA[fecha.getDay()]);
+    setText('cal-sel-month', `${MESES[mes - 1]} ${anio}`);
+
+    const cronosDia = getCronogramasPorFecha()[calSelectedDate] || [];
+    const lista = document.getElementById('cal-side-list');
+    const btn = document.getElementById('cal-side-detail');
+    if (!lista) return;
+
+    if (cronosDia.length === 0) {
+        lista.innerHTML = '<li class="cal-side-vacio">No hay pagos programados este día.</li>';
+        if (btn) btn.disabled = true;
+        return;
+    }
+
+    lista.innerHTML = cronosDia.map(c => {
+        const pagado = estaPagado(c);
+        return `
+            <li class="cal-side-item ${pagado ? 'pagado' : ''}">
+                <i></i>
+                <span>
+                    <span class="cal-side-item-desc">${escapeHtml(c.nom_cronograma)}</span>
+                    <span class="cal-side-item-meta">${formatCurrency(c.total_a_pagar)} · ${pagado ? 'Pagado' : 'Pendiente'}</span>
+                </span>
+            </li>`;
+    }).join('');
+
+    if (btn) btn.disabled = false;
+}
+
+// ---- Tira de meses del año en curso ----
+function renderMonthStrip() {
+    const strip = document.getElementById('cal-months');
+    if (!strip) return;
+
+    strip.innerHTML = MESES_CORTO.map((m, i) => `
+        <button type="button" class="cal-month ${i === calCurrentMonth ? 'active' : ''}" data-mes="${i}">${m}</button>
+    `).join('');
+
+    strip.querySelectorAll('.cal-month').forEach(btn => {
+        btn.addEventListener('click', () => {
+            calCurrentMonth = Number(btn.dataset.mes);
+            renderCalendar();
+        });
+    });
+}
+
+// Al cambiar de mes se selecciona su primer día con pagos programados, para
+// que el panel izquierdo no quede vacío; si no hay ninguno, cae en el día 1.
+function seleccionarDiaDelMes() {
+    const cronosPorFecha = getCronogramasPorFecha();
+    const prefijo = `${calCurrentYear}-${String(calCurrentMonth + 1).padStart(2, '0')}`;
+
+    const tieneP    = (cronosPorFecha[calSelectedDate] || []).length > 0;
+    const mismoMes  = calSelectedDate.startsWith(prefijo);
+
+    // Se respeta la selección del usuario; solo se reubica al cambiar de mes
+    // o en la primera carga, si el día de hoy no tiene nada programado.
+    if (mismoMes && (tieneP || !calPrimerRender)) {
+        calPrimerRender = false;
+        return;
+    }
+    calPrimerRender = false;
+
+    const conPagos = Object.keys(cronosPorFecha)
+        .filter(f => f.startsWith(prefijo))
+        .sort();
+
+    calSelectedDate = conPagos[0] || `${prefijo}-01`;
+}
+
 function renderCalendar() {
     const grid = document.getElementById('calendar-grid');
-    const label = document.getElementById('cal-month-label');
-    if (!grid || !label) return;
+    if (!grid) return;
 
-    label.textContent = `${MESES[calCurrentMonth]} ${calCurrentYear}`;
+    seleccionarDiaDelMes();
+
+    setText('cal-year-label', calCurrentYear);
+    renderMonthStrip();
 
     const cronosPorFecha = getCronogramasPorFecha();
     const primerDiaSemana = new Date(calCurrentYear, calCurrentMonth, 1).getDay(); // 0=Dom
     const diasEnMes = new Date(calCurrentYear, calCurrentMonth + 1, 0).getDate();
+    const diasMesPrevio = new Date(calCurrentYear, calCurrentMonth, 0).getDate();
     const hoyStr = new Date().toISOString().slice(0, 10);
 
-    let html = '';
+    // La rejilla siempre muestra seis semanas completas: los días del mes
+    // vecino se dibujan atenuados en vez de dejar huecos.
+    const celdas = [];
 
-    // Celdas vacías antes del día 1
-    for (let i = 0; i < primerDiaSemana; i++) {
-        html += `<div class="calendar-day empty"></div>`;
+    for (let i = primerDiaSemana; i > 0; i--) {
+        celdas.push({ dia: diasMesPrevio - i + 1, otroMes: true, fecha: null });
+    }
+    for (let dia = 1; dia <= diasEnMes; dia++) {
+        celdas.push({ dia, otroMes: false, fecha: fechaISO(calCurrentYear, calCurrentMonth, dia) });
+    }
+    let siguiente = 1;
+    while (celdas.length % 7 !== 0 || celdas.length < 42) {
+        celdas.push({ dia: siguiente++, otroMes: true, fecha: null });
+        if (celdas.length >= 42) break;
     }
 
-    for (let dia = 1; dia <= diasEnMes; dia++) {
-        const fechaStr = `${calCurrentYear}-${String(calCurrentMonth + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-        const cronosDia = cronosPorFecha[fechaStr] || [];
-        const esHoy = fechaStr === hoyStr;
-
-        let badgeHtml = '';
-        let claseEstado = '';
-        if (cronosDia.length > 0) {
-            const hayPendientes = cronosDia.some(c => !(c.ind_estado === 't' || c.ind_estado === true));
-            claseEstado = hayPendientes ? 'pendiente' : 'pagado';
-            badgeHtml = `<span class="calendar-day-badge ${claseEstado}">${cronosDia.length}</span>`;
+    grid.innerHTML = celdas.map(celda => {
+        if (celda.otroMes) {
+            return `<div class="cal-day otro-mes"><span class="cal-day-num">${String(celda.dia).padStart(2, '0')}</span></div>`;
         }
 
-        html += `
-            <div class="calendar-day ${esHoy ? 'today' : ''} ${cronosDia.length > 0 ? 'has-crono' : ''}" data-fecha="${fechaStr}">
-                <span class="calendar-day-num">${dia}</span>
-                ${badgeHtml}
-            </div>
-        `;
-    }
+        const cronosDia = cronosPorFecha[celda.fecha] || [];
+        const clases = ['cal-day'];
+        let dotHtml = '';
 
-    grid.innerHTML = html;
+        if (cronosDia.length > 0) {
+            clases.push('has-crono');
+            const hayPendientes = cronosDia.some(c => !estaPagado(c));
+            dotHtml = `<span class="cal-day-dot ${hayPendientes ? 'pendiente' : 'pagado'}"></span>`;
+        }
+        if (celda.fecha === hoyStr) clases.push('hoy');
+        if (celda.fecha === calSelectedDate) clases.push('sel');
 
-    grid.querySelectorAll('.calendar-day.has-crono').forEach(dayEl => {
-        dayEl.addEventListener('click', () => openDayModal(dayEl.dataset.fecha));
+        return `
+            <div class="${clases.join(' ')}" data-fecha="${celda.fecha}">
+                <span class="cal-day-num">${String(celda.dia).padStart(2, '0')}</span>
+                ${dotHtml}
+            </div>`;
+    }).join('');
+
+    // Un clic selecciona el día: el detalle se muestra en el panel izquierdo
+    grid.querySelectorAll('.cal-day.has-crono').forEach(dayEl => {
+        dayEl.addEventListener('click', () => {
+            calSelectedDate = dayEl.dataset.fecha;
+            renderCalendar();
+            renderSidePanel();
+        });
     });
+
+    renderSidePanel();
 }
 
-function changeMonth(delta) {
-    calCurrentMonth += delta;
-    if (calCurrentMonth > 11) { calCurrentMonth = 0; calCurrentYear++; }
-    if (calCurrentMonth < 0) { calCurrentMonth = 11; calCurrentYear--; }
-    renderCalendar();
-}
-
-function goToToday() {
-    const hoy = new Date();
-    calCurrentYear = hoy.getFullYear();
-    calCurrentMonth = hoy.getMonth();
+function changeYear(delta) {
+    calCurrentYear += delta;
     renderCalendar();
 }
 
@@ -436,9 +538,9 @@ function initCronoModule() {
     document.querySelectorAll('.view-toggle').forEach(btn => {
         btn.addEventListener('click', () => switchView(btn.dataset.view));
     });
-    document.getElementById('cal-prev-month')?.addEventListener('click', () => changeMonth(-1));
-    document.getElementById('cal-next-month')?.addEventListener('click', () => changeMonth(1));
-    document.getElementById('cal-today-btn')?.addEventListener('click', goToToday);
+    document.getElementById('cal-prev-year')?.addEventListener('click', () => changeYear(-1));
+    document.getElementById('cal-next-year')?.addEventListener('click', () => changeYear(1));
+    document.getElementById('cal-side-detail')?.addEventListener('click', () => openDayModal(calSelectedDate));
     document.getElementById('close-day-modal')?.addEventListener('click', closeDayModal);
     document.getElementById('close-day-btn')?.addEventListener('click', closeDayModal);
     document.getElementById('modal-day')?.addEventListener('click', e => {

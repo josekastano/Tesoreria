@@ -45,9 +45,7 @@ CREATE TABLE tab_festivos
     nom_festivo        VARCHAR(30)          NOT NULL CHECK((LENGTH(nom_festivo) >= 3) AND (LENGTH(nom_festivo) <= 50)) DEFAULT 'Día sin especificar',   -- Nombre descriptivo
     ind_borrado        BOOLEAN              NOT NULL DEFAULT FALSE,                   										                            -- TRUE: Borrado lógico (Inactivo) / FALSE: Activo
      
-    PRIMARY KEY (id_festivo),
-
-    CONSTRAINT uq_festivo_fecha             UNIQUE (fecha)                                                                                              -- Impide cargar dos festivos con la misma fecha
+    PRIMARY KEY (id_festivo)
 );
 
 -------------------------
@@ -135,6 +133,7 @@ CREATE TABLE tab_cuentasxpagar
 (
     id_factura          DECIMAL(8,0)        NOT NULL CHECK((id_factura) >= 1 AND (id_factura) <= 99999999),                                     -- Identificador de la factura
     id_proveedor        VARCHAR(10)         NOT NULL CHECK(id_proveedor ~ '^[1-9][0-9]{7,9}$') DEFAULT '2222222222',                            -- Identificador (NIT) del proveedor
+    id_ordencompra      DECIMAL(6,0)            NULL CHECK (id_ordencompra IS NULL OR id_ordencompra > 0),                                                                 -- Identificador de la orden de compra
     fec_emision         DATE                NOT NULL DEFAULT CURRENT_DATE,                                                                      -- Fecha de emisión de la factura
     fec_vencimiento     DATE                NOT NULL CHECK (fec_vencimiento > fec_emision),                                                     -- FECHA DE PAGO FACTURA (FECHA EMISIÓN + DIAS DE PAGO)
     val_factura         DECIMAL(10,0)       NOT NULL CHECK((val_factura) >= 0 AND (val_factura) <= 9999999999),                                 -- Monto total de la factura
@@ -143,7 +142,8 @@ CREATE TABLE tab_cuentasxpagar
     ind_estado          BOOLEAN             NOT NULL DEFAULT FALSE,                                                                             -- TRUE = Pagado O FALSE = En deuda
 
     PRIMARY KEY         (id_factura),                                                                                           
-    FOREIGN KEY         (id_proveedor)      REFERENCES tab_proveedores(id_proveedor)    
+    FOREIGN KEY         (id_proveedor)      REFERENCES tab_proveedores(id_proveedor),
+    FOREIGN KEY         (id_ordencompra)    REFERENCES tab_enc_ordcomp(id_ordencompra)  
 );
 -- Consultas tipo: "facturas pendientes de un proveedor"
 CREATE INDEX idx_facturas_proveedor         ON tab_cuentasxpagar(id_proveedor);

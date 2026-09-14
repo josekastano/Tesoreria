@@ -66,6 +66,46 @@ function responder_json(array $respuesta): void {
     exit;
 }
 
+// ============================================================
+// RESPUESTA CSV PARA DESCARGA DE ARCHIVOS
+// ============================================================
+// Igual que responder_json(): se descartan buffers abiertos antes de mandar
+// las cabeceras, para que ningún warning/HTML de por medio termine metido
+// dentro del archivo CSV que el usuario va a abrir en Excel/el banco.
+function responder_csv(string $nombre_archivo, array $filas, array $encabezados_csv): void {
+    // El CSV se arma primero en un stream de MEMORIA (php://temp), no directo
+    // a la salida real. Así, si PHP imprime un warning/notice/deprecated
+    // mientras se genera (p.ej. el aviso de fputcsv() sobre el parámetro
+    // $escape en PHP 8.4), ese texto cae en el buffer de salida normal y se
+    // descarta más abajo junto con cualquier sobrante del layout, en vez de
+    // colarse entre las filas del archivo.
+    //
+    // $escape se pasa explícito ('\\', el valor histórico por defecto) para
+    // no depender del default de fputcsv(): PHP 8.4 marcó como deprecated no
+    // pasarlo, y a partir de PHP 9 el default cambia de comportamiento.
+    $mem = fopen('php://temp', 'w+');
+    fputcsv($mem, $encabezados_csv, ';', '"', '\\');
+    foreach ($filas as $fila) {
+        fputcsv($mem, $fila, ';', '"', '\\');
+    }
+    rewind($mem);
+    $contenido_csv = stream_get_contents($mem);
+    fclose($mem);
+
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $nombre_archivo . '.csv"');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Pragma: public');
+
+    // BOM UTF-8: sin esto Excel en Windows muestra mal tildes y "ñ".
+    echo "\xEF\xBB\xBF" . $contenido_csv;
+    exit;
+}
+
 // Evita el "Call to a member function execute() on null" cuando una consulta
 // preparada no existe en prepare_tescxp.php: lanza una excepción con nombre y
 // todo, que sí viaja al front como JSON.
@@ -189,6 +229,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             responder_json($respuesta);
         }
 
+        // ---------- DESCARGAR ARCHIVO PLANO (CSV) ----------
+        // Si algo falla acá, la excepción cae en el catch de más abajo y viaja
+        // como JSON normal; el front distingue error (JSON) de éxito (CSV) por
+        // el Content-Type de la respuesta.
+        if (isset($_POST['btn_descargar_archivo_plano'])) {
+            $id_archivo_plano = (int)($_POST['hid_id_archivo_plano'] ?? 0);
+            if ($id_archivo_plano <= 0) {
+                throw new Exception('Archivo plano no válido.');
+            }
+
+            $stmt_enc = requerir_stmt($get_enc_archivo_plano ?? null, 'get_enc_archivo_plano');
+            $stmt_enc->execute([':wid_archivo_plano' => $id_archivo_plano]);
+            $encabezado = $stmt_enc->fetch(PDO::FETCH_ASSOC);
+            if (!$encabezado) {
+                throw new Exception('El archivo plano solicitado no existe.');
+            }
+
+            $stmt_det = requerir_stmt($list_det_archivo_plano ?? null, 'list_det_archivo_plano');
+            $stmt_det->execute([':wid_archivo_plano' => $id_archivo_plano]);
+            $detalle = $stmt_det->fetchAll(PDO::FETCH_ASSOC);
+            if (empty($detalle)) {
+                throw new Exception('Este archivo plano no tiene pagos registrados para descargar.');
+            }
+
+            $stmt_sum = requerir_stmt($sum_det_archivo_plano ?? null, 'sum_det_archivo_plano');
+            $stmt_sum->execute([':wid_archivo_plano' => $id_archivo_plano]);
+            $totales = $stmt_sum->fetch(PDO::FETCH_ASSOC) ?: [
+                'cant_registros'  => count($detalle),
+                'total_a_debitar' => array_sum(array_column($detalle, 'val_a_pagar')),
+            ];
+
+            // Se marca como generado la primera vez que se descarga. El
+            // COALESCE de la consulta evita pisar fec_generacion si el
+            // archivo ya se había descargado antes.
+            requerir_stmt($upd_generar_archivo_plano ?? null, 'upd_generar_archivo_plano')
+                ->execute([':wid_archivo_plano' => $id_archivo_plano]);
+
+            $filas = [];
+            foreach ($detalle as $d) {
+                $filas[] = [
+                    'DET',
+                    $d['id_empresa'],
+                    $d['cta_empresa'],
+                    $d['id_proveedor'],
+                    $d['nom_tercero'],
+                    $d['cta_proveedor'],
+                    es_verdadero($d['ind_tipocuenta']) ? 'CORRIENTE' : 'AHORROS',
+                    $d['id_factura'],
+                    $d['id_cuota'],
+                    number_format((float)$d['val_a_pagar'], 2, '.', ''),
+                ];
+            }
+            // Registro de control al final: número de pagos y valor total a
+            // debitar de la cuenta de la empresa (útil para cuadrar contra
+            // el banco antes de subir el archivo).
+            $filas[] = [
+                'TOTAL', '', '', '', '', '', '',
+                (int)$totales['cant_registros'],
+                '',
+                number_format((float)$totales['total_a_debitar'], 2, '.', ''),
+            ];
+
+            $nombre_archivo = preg_replace('/[^A-Za-z0-9_\-]/', '_', (string)$encabezado['nom_archivo']);
+            if ($nombre_archivo === '') {
+                $nombre_archivo = 'archivo_plano_' . $id_archivo_plano;
+            }
+
+            responder_csv($nombre_archivo, $filas, [
+                'tipo_registro', 'id_empresa', 'cta_empresa', 'id_proveedor',
+                'nombre_proveedor', 'cta_proveedor', 'tipo_cuenta',
+                'id_factura', 'id_cuota', 'valor_a_pagar',
+            ]);
+        }
+
         // ---------- NUEVO ARCHIVO PLANO ----------
         if (isset($_POST['btn_nuevo'])) {
             $id_cronograma  = (int)($_POST['sel_id_cronograma']  ?? 0);
@@ -223,17 +337,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($id_empresa) || empty($cta_empresa)) {
                 $errores['err-new-cuenta-empresa'] = 'Seleccione la cuenta de la empresa de origen.';
             } else {
-                // La cuenta de origen debe existir y ser del mismo banco al que
-                // se le entrega el archivo (regla anotada en prepare_tescxp.php,
-                // bloque de $list_ctas_empresa_banco).
+                // La cuenta de origen puede ser de cualquier banco registrado
+                // para la empresa, sin importar el banco destino del archivo.
+                // Solo se valida que la combinación empresa+cuenta exista.
                 $cta_emp_ok = false;
                 foreach ($ctas_empresa_disp as $ce) {
                     if ((string)$ce['id_empresa'] === (string)$id_empresa
                         && (string)$ce['cta_empresa'] === (string)$cta_empresa) {
                         $cta_emp_ok = true;
-                        if (!empty($id_banco) && (string)$ce['id_banco'] !== (string)$id_banco) {
-                            $errores['err-new-cuenta-empresa'] = 'La cuenta de origen debe pertenecer al banco destino del archivo.';
-                        }
                         break;
                     }
                 }

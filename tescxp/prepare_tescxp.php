@@ -74,16 +74,6 @@ try {
           ORDER BY fecha"
     );
 
-    // ---- FESTIVOS DE UN AÑO (para el calendario y para validar fechas de pago) ----
-    $list_festivos_anio = $pdo->prepare(
-        "SELECT  id_festivo,
-                 fecha,
-                 nom_festivo
-           FROM  tab_festivos
-          WHERE  ind_borrado = FALSE
-            AND  EXTRACT(YEAR FROM fecha) = :wanio
-          ORDER BY fecha"
-    );
 
     // ---- UN FESTIVO (para el formulario de edición) ----
     // >>> NUEVO: no existía y el formulario de edición no tenía de dónde
@@ -95,50 +85,6 @@ try {
            FROM  tab_festivos
           WHERE  id_festivo  = :wid_festivo
             AND  ind_borrado = FALSE"
-    );
-
-    // ---- VALIDACIÓN — ¿LA FECHA ES FESTIVA? ----
-    $check_es_festivo = $pdo->prepare(
-        "SELECT  EXISTS (
-                    SELECT 1
-                      FROM tab_festivos
-                     WHERE fecha = :wfecha
-                       AND ind_borrado = FALSE
-                 ) AS es_festivo"
-    );
-
-    // ---- VALIDACIÓN — ¿LA FECHA ES DÍA HÁBIL? ----
-    // >>> NUEVO. El comentario de la versión anterior decía que un pago no
-    //     debería programarse "ni en festivo ni en domingo", pero solo existía
-    //     la validación del festivo. Esta devuelve las dos banderas de una vez.
-    //     Se usa un CTE para no repetir el placeholder (ver nota de PDO abajo).
-    //     EXTRACT(DOW): 0 = domingo, 6 = sábado.
-    $check_dia_habil = $pdo->prepare(
-        "WITH f AS (SELECT CAST(:wfecha AS DATE) AS d)
-         SELECT  f.d                             AS fecha,
-                 EXTRACT(DOW FROM f.d) = 0       AS es_domingo,
-                 EXTRACT(DOW FROM f.d) = 6       AS es_sabado,
-                 EXISTS (
-                    SELECT 1
-                      FROM tab_festivos x
-                     WHERE x.fecha = f.d
-                       AND x.ind_borrado = FALSE
-                 )                               AS es_festivo
-           FROM  f"
-    );
-
-    // ---- VALIDACIÓN — ¿YA EXISTE UN FESTIVO EN ESA FECHA? ----
-    // >>> NUEVO. tab_festivos tiene CONSTRAINT uq_festivo_fecha UNIQUE (fecha).
-    //     Conviene avisar antes de que reviente el INSERT.
-    //     El segundo parámetro permite excluir la propia fila al editar
-    //     (mandar 0 cuando se está insertando).
-    $check_festivo_fecha_dup = $pdo->prepare(
-        "SELECT  EXISTS (
-                    SELECT 1
-                      FROM tab_festivos
-                     WHERE fecha      = :wfecha
-                       AND id_festivo <> :wid_festivo
-                 ) AS existe"
     );
 
     // ---- INSERT — fun_insert_festivos (2 params) ----
@@ -646,6 +592,7 @@ try {
     $list_cuentasxpagar = $pdo->prepare(
         "SELECT  f.id_factura,
                  f.id_proveedor,
+                 f.id_ordencompra,
                  t.nom_tercero,
                  f.fec_emision,
                  f.fec_vencimiento,
@@ -664,6 +611,7 @@ try {
     $get_cuentasxpagar = $pdo->prepare(
         "SELECT  f.id_factura,
                  f.id_proveedor,
+                 f.id_ordencompra,
                  t.nom_tercero,
                  f.fec_emision,
                  f.fec_vencimiento,
@@ -739,6 +687,7 @@ try {
         "SELECT fun_insert_cuentasxpagar(
             :wid_factura,
             :wid_proveedor,
+            :wid_ordencompra,
             :wfec_emision,
             :wfec_vencimiento,
             :wval_factura,
@@ -1125,9 +1074,9 @@ try {
     $list_motivos_rechazo = $pdo->prepare(
         "SELECT  id_motivo_rechazo,
                  des_motivo,
-                 cod_bancario,
-                 ind_borrado
+                 cod_bancario
            FROM  tab_motivos_rechazo
+           WHERE ind_borrado = FALSE
           ORDER BY des_motivo"
     );
 
@@ -1160,13 +1109,6 @@ try {
                 :wind_borrado)"
     );
 
-    // ---- ACTIVAR / DESACTIVAR (borrado lógico directo) ----
-    // Botón rápido de la tabla: solo cambia ind_borrado, sin pasar por función.
-    $upd_motivo_rechazo_estado = $pdo->prepare(
-        "UPDATE tab_motivos_rechazo
-            SET ind_borrado = :wind_borrado
-          WHERE id_motivo_rechazo = :wid_motivo_rechazo"
-    );
 
     // ---- DELETE — fun_delete_motivos_rechazo (1 param) ----
     // Borrado lógico (ind_borrado = TRUE)

@@ -41,11 +41,6 @@ function showToast(message, type = 'success') {
     toast._timer = setTimeout(() => toast.classList.add('hidden'), 3500);
 }
 
-// ind_borrado llega como 't'/'f' desde PDO pgsql
-function estaBorrado(valor) {
-    return valor === 't' || valor === true || valor === 1 || valor === '1';
-}
-
 // ============================================================
 // 2. MODAL: NUEVO MOTIVO
 // ============================================================
@@ -54,7 +49,6 @@ function openNewModal() {
     setVal('new-id-motivo', '');
     setVal('new-des-motivo', '');
     setVal('new-cod-bancario', '');
-    setVal('new-estado', 'false');
     show('modal-new-motivo');
 }
 
@@ -71,7 +65,6 @@ function openEditModal(motivo) {
     setVal('edit-id-motivo-display', motivo.id_motivo_rechazo);
     setVal('edit-des-motivo',        motivo.des_motivo);
     setVal('edit-cod-bancario',      motivo.cod_bancario ?? '');
-    setVal('edit-estado', estaBorrado(motivo.ind_borrado) ? 'true' : 'false');
     show('modal-edit-motivo');
 }
 
@@ -115,16 +108,14 @@ function clearFilters() {
 }
 
 // ============================================================
-// 5. ACTIVAR / DESACTIVAR (borrado lógico, función global)
+// 5. ELIMINAR / RESTAURAR (borrado lógico, funciones globales)
 // ============================================================
-window.toggleEstadoMotivo = function(idMotivo, nuevoBorrado) {
-    const accion = nuevoBorrado ? 'desactivar' : 'activar';
-    if (nuevoBorrado && !confirm(`¿Desea ${accion} este motivo de rechazo?\nDejará de ofrecerse al registrar un pago, pero los pagos históricos lo conservan.`)) return;
-
+// ind_borrado es borrado lógico: el motivo deja de ofrecerse al registrar
+// un rechazo, pero los pagos históricos que lo referencian lo conservan.
+function enviarBorradoLogico(idMotivo, mensajeError) {
     const formData = new FormData();
-    formData.append('btn_toggle_estado', '1');
-    formData.append('hid_toggle_id_motivo', idMotivo);
-    formData.append('hid_toggle_borrado', nuevoBorrado ? 'true' : 'false');
+    formData.append('btn_eliminar', '1');
+    formData.append('hid_eliminar_id_motivo', idMotivo);
 
     fetch(window.location.href, {
         method: 'POST',
@@ -138,10 +129,15 @@ window.toggleEstadoMotivo = function(idMotivo, nuevoBorrado) {
             showToast(result.message, 'success');
             location.reload();
         } else {
-            showToast(result.message || 'Error al actualizar el estado', 'error');
+            showToast(result.message || mensajeError, 'error');
         }
     })
     .catch(() => showToast('Error de conexión', 'error'));
+}
+
+window.eliminarMotivo = function(idMotivo, desMotivo) {
+    if (!confirm(`¿Desea eliminar el motivo "${desMotivo}"?\nDejará de ofrecerse al registrar un rechazo, pero los pagos históricos lo conservan.`)) return;
+    enviarBorradoLogico(idMotivo, 'Error al eliminar el motivo');
 };
 
 // ============================================================

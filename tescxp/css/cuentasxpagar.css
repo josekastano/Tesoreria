@@ -326,7 +326,8 @@
 
 /* ---- BOTONES GENÉRICOS ---- */
 #mod-cuentasxpagar .btn,
-.modal-footer .btn {
+.modal-footer .btn,
+.oc-selected .btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 10px 22px; border-radius: 30px;
     font-size: 13px; font-weight: 700;
@@ -348,13 +349,15 @@
 .modal-footer .btn-success:hover { background: #1e5c3a; }
 
 #mod-cuentasxpagar .btn-secondary,
-.modal-footer .btn-secondary {
+.modal-footer .btn-secondary,
+.oc-selected .btn-secondary {
     background: #f1f5f9; color: #475569;
     border: 1.5px solid #c4c9d4;
 }
 
 #mod-cuentasxpagar .btn-secondary:hover,
-.modal-footer .btn-secondary:hover { background: #e2e8f0; }
+.modal-footer .btn-secondary:hover,
+.oc-selected .btn-secondary:hover { background: #e2e8f0; }
 
 #mod-cuentasxpagar .btn-danger,
 .modal-footer .btn-danger { background: #ef4444; color: white; }
@@ -629,13 +632,273 @@
     border: 1px solid #bfdbfe;
     border-radius: 8px;
     padding: 12px 14px;
-    margin-top: 4px;
+    margin: 4px 0 18px;
     line-height: 1.5;
     display: flex; align-items: flex-start; gap: 8px;
     text-wrap: pretty;
 }
 
 .config-hint i { color: #3b82f6; font-size: 14px; margin-top: 1px; flex-shrink: 0; }
+
+/* ============================================
+   ORDEN DE COMPRA (elección + selector)
+   ============================================ */
+.oc-choice {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.oc-choice-opt {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid #e9edf2;
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    font-size: 13px; font-weight: 600;
+    color: #1e293b;
+    transition: all 0.2s;
+}
+
+.oc-choice-opt:hover { border-color: #cbd5e1; background: #f9fafb; }
+
+/* La opción marcada se resalta con el borde, no con un relleno fuerte */
+.oc-choice-opt:has(input:checked) {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.oc-choice-opt input { accent-color: #3b82f6; width: 16px; height: 16px; flex-shrink: 0; }
+
+/* ---- Resumen de la orden elegida (en el formulario) ---- */
+.oc-selected {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    border: 1px solid #e9edf2;
+    border-radius: 12px;
+    padding: 14px 16px;
+    background: #f9fafb;
+}
+
+.oc-selected.sel { border-color: #3b82f6; background: #eff6ff; }
+
+.oc-selected-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.oc-selected .btn { flex-shrink: 0; white-space: nowrap; }
+
+.oc-selected-num {
+    font-size: 13px; font-weight: 700;
+    color: #1e293b; line-height: 1.35;
+}
+
+.oc-selected.sel .oc-selected-num { color: #1d4ed8; }
+
+.oc-selected-meta {
+    font-size: 11.5px; font-weight: 600;
+    color: #475569; line-height: 1.4;
+}
+
+/* ---- Barra de filtros del modal ---- */
+.oc-filter-bar {
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.oc-filter-bar .search-wrapper {
+    position: relative;
+    flex: 1; min-width: 240px;
+}
+
+.oc-filter-bar .search-icon {
+    position: absolute;
+    left: 13px; top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8; font-size: 12.5px;
+    pointer-events: none;
+}
+
+.oc-filter-bar .search-input {
+    width: 100%; height: 40px;
+    padding: 10px 16px 10px 38px;
+    border: 1.5px solid #b2d8c4;
+    border-radius: 50px;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 13px; font-weight: 500;
+    color: #1e293b;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.oc-filter-bar .search-input::placeholder { color: #94a3b8; font-weight: 500; }
+
+.oc-filter-bar .search-input:hover { border-color: #8cc4a8; }
+
+.oc-filter-bar .search-input:focus {
+    outline: none;
+    border-color: var(--dash-blue);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+}
+
+.oc-filter-bar > .form-select {
+    width: auto; min-width: 210px;
+    height: 40px; padding: 8px 16px;
+    font-size: 13px;
+}
+
+.oc-filter-bar .btn-clear-filter {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #ffffff;
+    border: 1px solid #fecdd3;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-family: inherit;
+    font-size: 12px; font-weight: 600;
+    color: #be123c; cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.oc-filter-bar .btn-clear-filter:hover { background: #fff1f2; border-color: #fda4af; }
+
+.oc-filter-bar .btn-clear-filter i { font-size: 10px; }
+
+.oc-filter-bar .filter-info {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.4px;
+    color: #475569;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.oc-filter-bar .filter-toggle-group { display: flex; gap: 6px; }
+
+.oc-filter-bar-sec {
+    gap: 10px 18px;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #e9edf2;
+}
+
+.oc-filter-field { display: flex; align-items: center; gap: 8px; }
+
+.oc-filter-field label {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.4px;
+    color: #475569; white-space: nowrap;
+}
+
+.oc-filter-field .form-input {
+    width: auto; height: 40px;
+    padding: 8px 16px;
+    font-size: 12.5px;
+}
+
+.oc-toggle {
+    background: #ffffff;
+    border: 1px solid #e9edf2;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-family: var(--dash-font, inherit);
+    font-size: 12px; font-weight: 600;
+    color: #475569; cursor: pointer;
+    transition: all 0.2s;
+}
+
+.oc-toggle:hover { border-color: #cbd5e1; background: #f9fafb; }
+
+.oc-toggle.active {
+    background: #eff6ff; border-color: #3b82f6;
+    color: #1d4ed8; font-weight: 700;
+}
+
+/* ---- Lista de órdenes disponibles ---- */
+.oc-list {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #e9edf2;
+    border-radius: 16px;
+    padding: 8px;
+    background: #ffffff;
+    margin-top: 4px;
+}
+
+.oc-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.oc-row:hover { background: #f9fafb; }
+.oc-row.sel { background: #eff6ff; }
+
+.oc-row input { accent-color: #3b82f6; width: 15px; height: 15px; flex-shrink: 0; }
+
+.oc-row-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.oc-row-num {
+    font-size: 12.5px; font-weight: 700;
+    color: #1e293b; line-height: 1.35;
+}
+
+.oc-row-meta {
+    font-size: 11px; font-weight: 600;
+    color: #475569; line-height: 1.4;
+}
+
+.oc-row-valor {
+    font-size: 13px; font-weight: 800;
+    color: #0a0c1a; white-space: nowrap;
+}
+
+.oc-vacio {
+    font-size: 12.5px; color: #475569;
+    text-align: center; padding: 24px 12px;
+    line-height: 1.5;
+}
+
+/* ---- Densidad del formulario de nueva factura ---- */
+/* Es el modal con más campos: se aprieta lo justo para que entre sin scroll */
+#new-factura-form .form-field { margin-bottom: 11px; }
+#new-factura-form .form-grid { gap: 12px; margin-bottom: 11px; }
+#new-factura-form .form-label { margin-bottom: 5px; }
+#new-factura-form .field-hint { margin-top: 4px; }
+#new-factura-form .form-input,
+#new-factura-form .form-select { height: 40px; padding-top: 9px; padding-bottom: 9px; }
+
+#new-factura-form .config-hint {
+    margin: 2px 0 12px;
+    padding: 10px 12px;
+}
+
+/* La pregunta y sus dos opciones comparten fila */
+#new-factura-form .oc-choice { gap: 8px; }
+#new-factura-form .oc-choice-opt { padding: 10px 12px; }
+
+#new-factura-form .oc-selected { padding: 11px 14px; }
+
+/* ---- COLUMNA DE ORDEN DE COMPRA EN LA TABLA ---- */
+.oc-tag {
+    display: inline-block;
+    background: var(--dash-blue-light);
+    color: #1d4ed8;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11.5px; font-weight: 700;
+    white-space: nowrap;
+}
+
+/* Sin orden no hay dato que mostrar: se marca como compra directa */
+.oc-directa {
+    font-size: 11.5px; font-weight: 600;
+    color: var(--dash-text-muted);
+}
 
 /* ---- TOAST ---- */
 #toast {
@@ -665,13 +928,22 @@
 /* ---- RESPONSIVE ---- */
 @media (max-width: 900px) {
     #mod-cuentasxpagar { padding: 20px; }
-    #mod-cuentasxpagar     #mod-cuentasxpagar .filter-bar { flex-direction: column; align-items: stretch; }
+    #mod-cuentasxpagar .filter-bar { flex-direction: column; align-items: stretch; }
     #mod-cuentasxpagar .filter-info { margin-left: 0; text-align: center; }
     .form-grid { grid-template-columns: 1fr; }
     .detail-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 768px) {
+    .oc-choice { grid-template-columns: 1fr; }
+    .oc-row { grid-template-columns: auto minmax(0, 1fr); row-gap: 6px; }
+    .oc-row-valor { grid-column: 2; }
+    .oc-filter-bar > .form-select { width: 100%; min-width: 0; }
+    .oc-filter-bar .filter-info { margin-left: 0; }
+    .oc-filter-field { flex: 1; }
+    .oc-filter-field .form-input { flex: 1; width: 100%; }
+    .oc-selected { flex-direction: column; align-items: stretch; }
+
     #mod-cuentasxpagar .stats-grid { grid-template-columns: 1fr; }
     .modal-box { width: 95vw; max-width: 95vw; }
     .cuota-row { grid-template-columns: 1fr auto; row-gap: 8px; }

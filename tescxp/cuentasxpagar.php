@@ -16,7 +16,7 @@ if (!defined('INCLUDE_MENU_PRINCIPAL')) {
 }
 
 require_once('prepare_tescxp.php');
-
+require_once('prepare_compro.php');
 // ============================================================
 // LIMPIAR MENSAJE DE ERROR DE POSTGRESQL
 // ============================================================
@@ -73,6 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $fec_emision  = trim($_POST['txt_fec_emision']    ?? '');
             $val_factura  = (float)($_POST['txt_val_factura'] ?? 0);
             $num_cuotas   = (int)($_POST['txt_num_cuotas']    ?? 0);
+            $tiene_oc     = ($_POST['rad_tiene_oc'] ?? 'no') === 'si';
+            $id_ordencompra = trim($_POST['hid_id_ordencompra'] ?? '');
 
             $errores = [];
 
@@ -92,6 +94,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errores['err-new-cuotas'] = 'El número de cuotas debe estar entre 1 y 99.';
             }
 
+            // id_ordencompra DECIMAL(6,0) CHECK(> 0); NULL cuando la factura no
+            // viene de una orden (compra directa digitada en ventanilla)
+            if ($tiene_oc) {
+                if ($id_ordencompra === '' || !ctype_digit($id_ordencompra) || (int)$id_ordencompra < 1) {
+                    $errores['err-new-oc'] = 'Seleccione la orden de compra de la factura.';
+                } elseif (!isset($ordenes_idx[$id_ordencompra])) {
+                    $errores['err-new-oc'] = 'La orden de compra no está disponible.';
+                } elseif ($ordenes_idx[$id_ordencompra] !== $id_proveedor) {
+                    $errores['err-new-oc'] = 'La orden de compra pertenece a otro proveedor.';
+                }
+            }
+
             if (!empty($errores)) {
                 $respuesta['errors'] = $errores;
                 echo json_encode($respuesta);
@@ -109,6 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':wfec_vencimiento' => $fec_vencimiento,
                 ':wval_factura'     => $val_factura,
                 ':wnum_cuotas'      => $num_cuotas,
+                ':wid_ordencompra'  => $tiene_oc ? (int)$id_ordencompra : null,
             ]);
 
             $respuesta['success'] = true;
@@ -131,6 +146,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode($respuesta);
         exit;
     }
+}
+
+// ============================================================
+// ÓRDENES DE COMPRA DISPONIBLES
+// ============================================================
+// tab_enc_ordcomp con ind_estado = 1 (Aprobado) y sin factura asociada:
+// son las únicas que se pueden vincular a una factura nueva.
+$list_ordencompra->execute();
+$ordenes = $list_ordencompra->fetchAll(PDO::FETCH_ASSOC);
+
+// Índice id_ordencompra => id_proveedor, para validar la pareja en el POST
+$ordenes_idx = [];
+foreach ($ordenes as $o) {
+    $ordenes_idx[(string)$o['id_ordencompra']] = $o['id_proveedor'];
 }
 
 // ============================================================
@@ -225,6 +254,7 @@ ob_start();
             <thead>
                 <tr>
                     <th>Factura</th>
+                    <th>Orden de Compra</th>
                     <th>Proveedor</th>
                     <th>Emisión</th>
                     <th>Vencimiento</th>
@@ -237,7 +267,7 @@ ob_start();
             <tbody id="facturas-tbody">
             <?php if (empty($facturas)): ?>
                 <tr class="empty-row">
-                    <td colspan="8">
+                    <td colspan="9">
                         <div class="empty-state">
                             <i class="fas fa-file-invoice"></i>
                             <p>No hay facturas registradas</p>
@@ -265,6 +295,13 @@ ob_start();
                 ?>
                 <tr data-estado="<?= $filtro_estado ?>" onclick="openDetailModal(<?= $id_fact_esc ?>)">
                     <td><strong>#<?= $id_fact_esc ?></strong></td>
+                    <td>
+                        <?php if (!empty($f['id_ordencompra'])): ?>
+                            <span class="oc-tag">OC #<?= (int)$f['id_ordencompra'] ?></span>
+                        <?php else: ?>
+                            <span class="oc-directa">Compra directa</span>
+                        <?php endif; ?>
+                    </td>
                     <td>
                         <?= htmlspecialchars($f['nom_tercero']) ?><br>
                         <small style="color:#94a3b8;font-size:11px"><?= htmlspecialchars($f['id_proveedor']) ?></small>
@@ -338,11 +375,101 @@ ob_start();
                     </div>
                 </div>
                 <p class="config-hint" id="new-cuota-preview" style="display:none"></p>
+
+                <div class="form-field">
+                    <label class="form-label">¿La factura tiene orden de compra? <span class="required">*</span></label>
+                    <div class="oc-choice">
+                        <label class="oc-choice-opt">
+                            <input type="radio" name="rad_tiene_oc" value="no" checked="checked">
+                            <span>No, compra directa</span>
+                        </label>
+                        <label class="oc-choice-opt">
+                            <input type="radio" name="rad_tiene_oc" value="si">
+                            <span>Sí, viene de una orden</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="oc-picker" class="form-field" style="display:none">
+                    <input type="hidden" name="hid_id_ordencompra" id="new-id-ordencompra" value="">
+                    <label class="form-label">Orden de Compra <span class="required">*</span></label>
+
+                    <!-- Resumen de lo elegido; el detalle se busca en su propio modal -->
+                    <div class="oc-selected" id="oc-selected">
+                        <div class="oc-selected-info">
+                            <span class="oc-selected-num" id="oc-selected-num">Ninguna orden seleccionada</span>
+                            <span class="oc-selected-meta" id="oc-selected-meta">Busque la orden que corresponde a esta factura.</span>
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="btn-open-oc-modal">
+                            <i class="fas fa-magnifying-glass"></i> Buscar orden
+                        </button>
+                    </div>
+                    <span class="field-error" id="err-new-oc"></span>
+                </div>
             </form>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary btn-cancel-new-modal">Cancelar</button>
             <button type="button" id="new-btn-save" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Factura</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: SELECCIONAR ORDEN DE COMPRA -->
+<div id="modal-oc" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width:820px">
+        <div class="modal-header blue">
+            <div>
+                <h2>Seleccionar Orden de Compra</h2>
+                <p>Órdenes aprobadas que aún no tienen factura asociada</p>
+            </div>
+            <button class="modal-close" id="close-oc-modal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+
+            <!-- Filtros del selector -->
+            <div class="oc-filter-bar">
+                <div class="search-wrapper">
+                    <span class="search-icon"><i class="fas fa-search"></i></span>
+                    <input type="text" id="oc-search" class="search-input" placeholder="Buscar por número de orden o proveedor...">
+                </div>
+                <select id="oc-filtro-proveedor" class="form-select">
+                    <option value="">Todos los proveedores</option>
+                    <?php foreach ($proveedores_dp as $p): ?>
+                        <option value="<?= htmlspecialchars($p['id_proveedor']) ?>">
+                            <?= htmlspecialchars($p['nom_tercero']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="oc-filter-bar oc-filter-bar-sec">
+                <div class="oc-filter-field">
+                    <label for="oc-fec-desde">Emitidas desde</label>
+                    <input type="date" id="oc-fec-desde" class="form-input">
+                </div>
+                <div class="oc-filter-field">
+                    <label for="oc-fec-hasta">Hasta</label>
+                    <input type="date" id="oc-fec-hasta" class="form-input">
+                </div>
+                <div class="filter-toggle-group">
+                    <button type="button" class="oc-toggle active" data-met="all">Todas</button>
+                    <button type="button" class="oc-toggle" data-met="credito">Crédito</button>
+                    <button type="button" class="oc-toggle" data-met="contado">Contado</button>
+                </div>
+                <button type="button" id="btn-oc-clear" class="btn-clear-filter" style="display:none">
+                    <i class="fas fa-times"></i> Limpiar
+                </button>
+                <span class="filter-info" id="oc-count"></span>
+            </div>
+
+            <div id="oc-list" class="oc-list"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancel-oc-modal">Cancelar</button>
+            <button type="button" id="btn-confirm-oc" class="btn btn-primary" disabled="disabled">
+                <i class="fas fa-check"></i> Usar esta orden
+            </button>
         </div>
     </div>
 </div>
@@ -370,10 +497,10 @@ ob_start();
 
 <!-- DATOS PARA EL JS -->
 <script>
+const ordenesData = <?= json_encode($ordenes) ?>;
 const facturasData = <?= json_encode(array_values($facturas), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
 </script>
 
-<!-- SCRIPTS JS -->
 <script src="modules/tescxp/js/cuentasxpagar.js"></script>
 
 <?php

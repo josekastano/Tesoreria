@@ -5,8 +5,8 @@ $activeModule     = 'tescxp';
 $page_title       = "ADSOERP | Cronograma de Pagos";
 $page_description = "Programación de pagos agrupando cuotas pendientes de facturas";
 $page_icon        = "bi-calendar2-check";
-$page_extra_css   = ["../modules/tescxp/css/cronograma.css"];
-$page_extra_js    = ["../modules/tescxp/js/cronograma.js"];
+$page_extra_css   = ["../modules/tescxp/css/cronopagos.css"];
+$page_extra_js    = ["../modules/tescxp/js/cronopagos.js"];
 $show_welcome     = false;
 // ==========================================
 
@@ -360,23 +360,47 @@ ob_start();
 
     <!-- VISTA: CALENDARIO -->
     <div id="view-calendario" class="view-pane">
-        <div class="calendar-card">
-            <div class="calendar-header">
-                <span class="calendar-header-spacer"></span>
-                <div class="calendar-nav">
-                    <button id="cal-prev-month" class="btn-icon-sm view"><i class="fas fa-chevron-left"></i></button>
-                    <h3 id="cal-month-label">—</h3>
-                    <button id="cal-next-month" class="btn-icon-sm view"><i class="fas fa-chevron-right"></i></button>
+        <div class="cal-shell">
+
+            <!-- Panel del día seleccionado -->
+            <aside class="cal-side">
+                <div>
+                    <span class="cal-side-day" id="cal-sel-day">—</span>
+                    <span class="cal-side-weekday" id="cal-sel-weekday"></span>
+                    <span class="cal-side-month" id="cal-sel-month"></span>
                 </div>
-                <button id="cal-today-btn" class="btn btn-secondary calendar-today-btn">Hoy</button>
-            </div>
-            <div class="calendar-weekdays">
-                <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
-            </div>
-            <div id="calendar-grid" class="calendar-grid"></div>
-            <div class="calendar-legend">
-                <span class="calendar-legend-item"><i class="calendar-dot pendiente"></i> Con pendientes</span>
-                <span class="calendar-legend-item"><i class="calendar-dot pagado"></i> Todos pagados</span>
+
+                <div class="cal-side-events">
+                    <span class="cal-side-label">Cronogramas del día</span>
+                    <ul class="cal-side-list" id="cal-side-list"></ul>
+                </div>
+
+                <button type="button" class="cal-side-action" id="cal-side-detail" disabled="disabled">
+                    <span>Ver detalle del día</span>
+                    <i class="fas fa-circle-plus"></i>
+                </button>
+            </aside>
+
+            <!-- Rejilla del mes -->
+            <div class="cal-main">
+                <div class="cal-year-nav">
+                    <button type="button" id="cal-prev-year" class="cal-arrow" title="Año anterior"><i class="fas fa-chevron-left"></i></button>
+                    <h3 id="cal-year-label">—</h3>
+                    <button type="button" id="cal-next-year" class="cal-arrow" title="Año siguiente"><i class="fas fa-chevron-right"></i></button>
+                </div>
+
+                <div class="cal-months" id="cal-months"></div>
+
+                <div class="cal-weekdays">
+                    <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+                </div>
+
+                <div id="calendar-grid" class="cal-grid"></div>
+
+                <div class="cal-legend">
+                    <span class="cal-legend-item"><i class="cal-dot pendiente"></i> Con pendientes</span>
+                    <span class="cal-legend-item"><i class="cal-dot pagado"></i> Todos pagados</span>
+                </div>
             </div>
         </div>
     </div>
@@ -520,8 +544,8 @@ const cronogramasData = <?= json_encode(array_values($cronogramas), JSON_HEX_TAG
 <!-- TOAST -->
 <div id="toast" class="hidden"><span id="toast-message"></span></div>
 
-<!-- SCRIPTS JS -->
 <script src="modules/tescxp/js/cronopagos.js"></script>
+
 
 <?php
 $moduleContent = ob_get_clean();

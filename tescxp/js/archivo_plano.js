@@ -216,25 +216,6 @@ function buildCtasProveedorPayload() {
     setVal('hid-ctas-proveedor', pares.join(','));
 }
 
-// La cuenta de origen debe ser del mismo banco al que se entrega el archivo,
-// así que el combo de cuentas de empresa se filtra por el banco elegido.
-function filtrarCtasEmpresaPorBanco() {
-    const idBanco = val('new-id-banco');
-    const sel     = document.getElementById('new-cta-empresa');
-    if (!sel) return;
-
-    let seleccionValida = false;
-    Array.from(sel.options).forEach(op => {
-        if (!op.value) return;
-        const coincide = !idBanco || op.dataset.idBanco === idBanco;
-        op.hidden   = !coincide;
-        op.disabled = !coincide;
-        if (coincide && op.value === sel.value) seleccionValida = true;
-    });
-
-    if (!seleccionValida) sel.value = '';
-}
-
 // ============================================================
 // 3. MODAL: NUEVO ARCHIVO PLANO
 // ============================================================
@@ -246,7 +227,6 @@ function openNewModal() {
     setVal('new-cta-empresa', '');
     setVal('hid-ctas-proveedor', '');
     proveedoresCronograma = [];
-    filtrarCtasEmpresaPorBanco();
 
     const hint = document.getElementById('prov-cuentas-hint');
     const list = document.getElementById('prov-cuentas-list');
@@ -344,9 +324,62 @@ window.openDetailModal = openDetailModal;
 // ============================================================
 // 5.1 DESCARGA DEL ARCHIVO PLANO (CSV)
 // ============================================================
-// Pendiente de implementar. Por ahora solo se avisa al usuario.
-window.descargarArchivoPlano = function(id) {
-    showToast('La descarga del archivo plano se implementará próximamente.');
+// Se pide por POST (mismo endpoint que el resto del módulo). Si el servidor
+// pudo generar el CSV responde con Content-Type text/csv y el archivo se
+// descarga como blob; si algo falló, responde JSON como las demás acciones
+// y se muestra el mensaje de error en un toast.
+window.descargarArchivoPlano = async function(id) {
+    if (!id) return;
+
+    const formData = new FormData();
+    formData.append('btn_descargar_archivo_plano', '1');
+    formData.append('hid_id_archivo_plano', id);
+
+    try {
+        const response = await fetch(window.location.href, { method: 'POST', body: formData });
+        const contentType = response.headers.get('Content-Type') || '';
+
+        if (contentType.includes('application/json')) {
+            let result;
+            try { result = await response.json(); } catch (e) { result = {}; }
+            console.error('[archivo_plano] btn_descargar_archivo_plano falló:', result);
+            if (result.debug_origen)        console.error('[archivo_plano] origen:', result.debug_origen);
+            if (result.debug_salida_previa) console.error('[archivo_plano] salida previa del servidor:', result.debug_salida_previa);
+            showToast(result.message || 'No se pudo descargar el archivo.', 'error');
+            return;
+        }
+
+        if (!response.ok) {
+            showToast('No se pudo descargar el archivo (error del servidor).', 'error');
+            return;
+        }
+
+        const blob = await response.blob();
+
+        // Nombre sugerido a partir del header Content-Disposition; si por
+        // algún motivo no viene, se arma uno genérico como respaldo.
+        let nombreArchivo = `archivo_plano_${id}.csv`;
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) nombreArchivo = match[1].trim();
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nombreArchivo;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        showToast('Archivo plano descargado correctamente.');
+        // Pequeña espera para no interrumpir la descarga antes de refrescar
+        // la tabla (el estado pasa a "Generado" la primera vez que se baja).
+        setTimeout(() => location.reload(), 600);
+    } catch (err) {
+        console.error('[archivo_plano] Error de red al descargar:', err);
+        showToast('Error de conexión al descargar el archivo.', 'error');
+    }
 };
 
 // ============================================================
@@ -409,7 +442,6 @@ function initArchivoModule() {
     });
 
     document.getElementById('new-id-cronograma')?.addEventListener('change', onCronogramaChange);
-    document.getElementById('new-id-banco')?.addEventListener('change', filtrarCtasEmpresaPorBanco);
 
     document.querySelectorAll('.btn-close-new-modal, .btn-cancel-new-modal')
         .forEach(btn => btn.addEventListener('click', closeNewModal));

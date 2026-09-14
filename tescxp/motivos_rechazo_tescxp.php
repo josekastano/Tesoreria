@@ -5,8 +5,8 @@ $activeModule     = 'tescxp';
 $page_title       = "ADSOERP | Motivos de Rechazo";
 $page_description = "Catálogo de motivos por los que el banco puede rechazar un pago";
 $page_icon        = "bi-x-octagon";
-$page_extra_css   = ["../modules/tescxp/css/motivos_rechazo.css"];
-$page_extra_js    = ["../modules/tescxp/js/motivos_rechazo.js"];
+$page_extra_css   = ["../modules/tescxp/css/motivos_rechazo_tescxp.css"];
+$page_extra_js    = ["../modules/tescxp/js/motivos_rechazo_tescxp.js"];
 $show_welcome     = false;
 // ==========================================
 
@@ -43,7 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id_motivo    = trim($_POST['txt_id_motivo_rechazo'] ?? '');
             $des_motivo   = trim($_POST['txt_des_motivo']        ?? '');
             $cod_bancario = trim($_POST['txt_cod_bancario']      ?? '');
-            $ind_borrado  = ($_POST['sel_estado'] ?? 'false') === 'true';
 
             $errores = [];
 
@@ -74,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':wid_motivo_rechazo' => (int)$id_motivo,
                 ':wdes_motivo'        => $des_motivo,
                 ':wcod_bancario'      => $cod_bancario !== '' ? $cod_bancario : null,
-                ':wind_borrado'       => $ind_borrado ? 'true' : 'false',
+                ':wind_borrado'       => 'false',
             ]);
 
             $respuesta['success'] = true;
@@ -88,7 +87,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id_motivo    = trim($_POST['hid_edit_id_motivo']    ?? '');
             $des_motivo   = trim($_POST['txt_edit_des_motivo']   ?? '');
             $cod_bancario = trim($_POST['txt_edit_cod_bancario'] ?? '');
-            $ind_borrado  = ($_POST['sel_edit_estado'] ?? 'false') === 'true';
 
             $errores = [];
 
@@ -112,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':wid_motivo_rechazo' => (int)$id_motivo,
                 ':wdes_motivo'        => $des_motivo,
                 ':wcod_bancario'      => $cod_bancario !== '' ? $cod_bancario : null,
-                ':wind_borrado'       => $ind_borrado ? 'true' : 'false',
+                ':wind_borrado'       => 'false',
             ]);
 
             $respuesta['success'] = true;
@@ -121,24 +119,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // ---------- ACTIVAR / DESACTIVAR (borrado lógico) ----------
-        if (isset($_POST['btn_toggle_estado'])) {
-            $id_motivo   = trim($_POST['hid_toggle_id_motivo'] ?? '');
-            $ind_borrado = ($_POST['hid_toggle_borrado'] ?? 'false') === 'true';
+        // ---------- ELIMINAR (borrado lógico) ----------
+        // ind_borrado = TRUE saca el motivo del front, pero la fila permanece
+        // porque los pagos históricos la referencian por id_motivo_rechazo.
+        if (isset($_POST['btn_eliminar'])) {
+            $id_motivo = trim($_POST['hid_eliminar_id_motivo'] ?? '');
 
             if ($id_motivo === '' || !ctype_digit($id_motivo)) {
                 throw new Exception('Motivo no válido.');
             }
 
-            $upd_motivo_rechazo_estado->execute([
-                ':wid_motivo_rechazo' => (int)$id_motivo,
-                ':wind_borrado'       => $ind_borrado ? 'true' : 'false',
+            $del_motivo_rechazo->execute([
+                ':wid_motivo_rechazo' => (int)$id_motivo
             ]);
 
             $respuesta['success'] = true;
-            $respuesta['message'] = $ind_borrado
-                ? 'Motivo desactivado correctamente.'
-                : 'Motivo activado correctamente.';
+            $respuesta['message'] = 'Motivo eliminado correctamente.';
             echo json_encode($respuesta);
             exit;
         }
@@ -166,13 +162,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ============================================================
 // CARGAR TABLA (SOLO PARA LA VISTA INICIAL)
 // ============================================================
+// $list_motivos_rechazo trae únicamente los motivos con ind_borrado = FALSE:
+// un motivo eliminado desaparece del front, pero sigue en la base porque los
+// pagos históricos lo referencian por id_motivo_rechazo.
 $list_motivos_rechazo->execute();
 $motivos = $list_motivos_rechazo->fetchAll(PDO::FETCH_ASSOC);
-
-// Helper: ind_borrado llega como 't'/'f' en PDO pgsql
-function motivo_esta_borrado($valor): bool {
-    return $valor === 't' || $valor === true || $valor === 1 || $valor === '1';
-}
 
 // ============================================================
 // INICIO DEL HTML
@@ -197,29 +191,29 @@ ob_start();
     <!-- STATS -->
     <div class="stats-grid">
         <?php
-        $total     = count($motivos);
-        $inactivos = count(array_filter($motivos, fn($m) => motivo_esta_borrado($m['ind_borrado'])));
-        $activos   = $total - $inactivos;
+        $total        = count($motivos);
+        $con_codigo   = count(array_filter($motivos, fn($m) => trim((string)($m['cod_bancario'] ?? '')) !== ''));
+        $sin_codigo   = $total - $con_codigo;
         ?>
         <div class="stat-card">
             <div class="stat-icon blue"><i class="fas fa-list-ul"></i></div>
             <div class="stat-info">
-                <div class="stat-label">Total motivos</div>
+                <div class="stat-label">Motivos activos</div>
                 <div class="stat-value" id="stat-total"><?= $total ?></div>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-icon green"><i class="fas fa-barcode"></i></div>
             <div class="stat-info">
-                <div class="stat-label">Activos</div>
-                <div class="stat-value" id="stat-activos"><?= $activos ?></div>
+                <div class="stat-label">Con código bancario</div>
+                <div class="stat-value" id="stat-con-codigo"><?= $con_codigo ?></div>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon yellow"><i class="fas fa-ban"></i></div>
+            <div class="stat-icon yellow"><i class="fas fa-pen"></i></div>
             <div class="stat-info">
-                <div class="stat-label">Inactivos</div>
-                <div class="stat-value" id="stat-inactivos"><?= $inactivos ?></div>
+                <div class="stat-label">Sin código (manuales)</div>
+                <div class="stat-value" id="stat-sin-codigo"><?= $sin_codigo ?></div>
             </div>
         </div>
     </div>
@@ -232,8 +226,8 @@ ob_start();
         </div>
         <div class="filter-toggle-group">
             <button class="filter-toggle active" data-filter="all">Todos</button>
-            <button class="filter-toggle" data-filter="activo">Activos</button>
-            <button class="filter-toggle" data-filter="inactivo">Inactivos</button>
+            <button class="filter-toggle" data-filter="con-codigo">Con código</button>
+            <button class="filter-toggle" data-filter="sin-codigo">Sin código</button>
         </div>
         <button id="btn-clear-filters" class="btn-clear-filter" style="display:none">
             <i class="fas fa-times"></i> Limpiar
@@ -249,14 +243,13 @@ ob_start();
                     <th>ID</th>
                     <th>Descripción del Motivo</th>
                     <th>Código Bancario</th>
-                    <th class="text-center">Estado</th>
                     <th class="text-center">Acciones</th>
                 </tr>
             </thead>
             <tbody id="motivos-tbody">
             <?php if (empty($motivos)): ?>
                 <tr class="empty-row">
-                    <td colspan="5">
+                    <td colspan="4">
                         <div class="empty-state">
                             <i class="fas fa-x-octagon"></i>
                             <p>No hay motivos de rechazo registrados</p>
@@ -266,11 +259,10 @@ ob_start();
                 </tr>
             <?php else: ?>
                 <?php foreach ($motivos as $m):
-                    $borrado = motivo_esta_borrado($m['ind_borrado']);
-                    $filtro  = $borrado ? 'inactivo' : 'activo';
-                    $cod     = trim((string)($m['cod_bancario'] ?? ''));
+                    $cod    = trim((string)($m['cod_bancario'] ?? ''));
+                    $filtro = $cod !== '' ? 'con-codigo' : 'sin-codigo';
                 ?>
-                <tr data-tipo="<?= $filtro ?>" class="<?= $borrado ? 'inactivo' : '' ?>">
+                <tr data-tipo="<?= $filtro ?>">
                     <td><strong><?= htmlspecialchars($m['id_motivo_rechazo']) ?></strong></td>
                     <td><?= htmlspecialchars($m['des_motivo']) ?></td>
                     <td>
@@ -281,20 +273,13 @@ ob_start();
                         <?php endif; ?>
                     </td>
                     <td class="text-center">
-                        <?php if ($borrado): ?>
-                            <span class="badge badge-inactive">Inactivo</span>
-                        <?php else: ?>
-                            <span class="badge badge-active">Activo</span>
-                        <?php endif; ?>
-                    </td>
-                    <td class="text-center">
-                        <button class="btn-icon-sm toggle" title="<?= $borrado ? 'Activar' : 'Desactivar' ?>"
-                                onclick="toggleEstadoMotivo(<?= (int)$m['id_motivo_rechazo'] ?>, <?= $borrado ? 'false' : 'true' ?>)">
-                            <i class="fas fa-power-off"></i>
-                        </button>
                         <button class="btn-icon-sm edit" title="Editar"
                                 onclick='openEditModal(<?= json_encode($m, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>
                             <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon-sm reject" title="Eliminar"
+                                onclick="eliminarMotivo(<?= (int)$m['id_motivo_rechazo'] ?>, '<?= htmlspecialchars(addslashes($m['des_motivo']), ENT_QUOTES) ?>')">
+                            <i class="fas fa-trash"></i>
                         </button>
                     </td>
                 </tr>
@@ -334,13 +319,6 @@ ob_start();
                     <span class="field-error" id="err-new-codigo"></span>
                     <p class="field-hint">Opcional. Es el código con que el banco devuelve el rechazo en su archivo de respuesta.</p>
                 </div>
-                <div class="form-field">
-                    <label class="form-label">Estado</label>
-                    <select id="new-estado" name="sel_estado" class="form-select">
-                        <option value="false">Activo</option>
-                        <option value="true">Inactivo</option>
-                    </select>
-                </div>
             </form>
         </div>
         <div class="modal-footer">
@@ -356,7 +334,7 @@ ob_start();
         <div class="modal-header blue">
             <div>
                 <h2>Editar Motivo de Rechazo</h2>
-                <p>Modifique la descripción, el código o el estado</p>
+                <p>Modifique la descripción o el código bancario</p>
             </div>
             <button class="modal-close btn-close-edit-modal"><i class="fas fa-times"></i></button>
         </div>
@@ -379,13 +357,6 @@ ob_start();
                     <input type="text" id="edit-cod-bancario" name="txt_edit_cod_bancario" class="form-input" maxlength="10">
                     <span class="field-error" id="err-edit-codigo"></span>
                 </div>
-                <div class="form-field">
-                    <label class="form-label">Estado</label>
-                    <select id="edit-estado" name="sel_edit_estado" class="form-select">
-                        <option value="false">Activo</option>
-                        <option value="true">Inactivo</option>
-                    </select>
-                </div>
             </form>
         </div>
         <div class="modal-footer">
@@ -398,9 +369,7 @@ ob_start();
 <!-- TOAST -->
 <div id="toast" class="hidden"><span id="toast-message"></span></div>
 
-<!-- SCRIPTS JS -->
 <script src="modules/tescxp/js/motivos_rechazo_tescxp.js"></script>
-
 
 <?php
 $moduleContent = ob_get_clean();

@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Caja no válida.');
             }
 
-            $list_det_caja_menor->execute([':id_caja_menor' => $id_caja_menor]);
+            $list_det_caja_menor->execute([':wid_caja_menor' => $id_caja_menor]);
             $movimientos = $list_det_caja_menor->fetchAll(PDO::FETCH_ASSOC);
 
             $respuesta['success']     = true;

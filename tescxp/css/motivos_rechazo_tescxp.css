@@ -302,9 +302,6 @@
     color: var(--dash-text-muted);
 }
 
-/* La fila inactiva se atenúa: el motivo ya no se ofrece al registrar un rechazo */
-#mod-motivos .data-table tr.inactivo td { color: var(--dash-text-muted); }
-#mod-motivos .data-table tr.inactivo strong { color: var(--dash-text-sub); }
 
 /* ---- BOTONES DE ACCIÓN EN TABLA ---- */
 #mod-motivos .btn-icon-sm {
@@ -320,7 +317,7 @@
 #mod-motivos .btn-icon-sm.view   { background: var(--dash-blue-light);  color: var(--dash-blue); }
 #mod-motivos .btn-icon-sm.toggle { background: var(--dash-green-light); color: var(--dash-green-dark); }
 #mod-motivos .btn-icon-sm.edit   { background: var(--dash-amber-light); color: var(--dash-amber); }
-#mod-motivos .btn-icon-sm.reject { background: var(--dash-rose-light);  color: var(--dash-rose); }
+#mod-motivos .btn-icon-sm.reject  { background: var(--dash-rose-light);  color: var(--dash-rose); }
 #mod-motivos .btn-icon-sm:hover  { transform: translateY(-1px); filter: brightness(0.95); }
 
 /* ---- ESTADO VACÍO ---- */

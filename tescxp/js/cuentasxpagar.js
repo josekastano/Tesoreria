@@ -111,10 +111,182 @@ function updateCuotaPreview() {
 }
 
 // ============================================================
+// 2.1 ORDEN DE COMPRA DE LA FACTURA
+// ============================================================
+// Solo se listan las órdenes aprobadas sin factura. La búsqueda vive en su
+// propio modal; el formulario solo guarda el id y muestra un resumen.
+let ocPendiente = '';   // marcada dentro del modal, aún sin confirmar
+let ocMetodo    = 'all';
+
+function tieneOrdenCompra() {
+    return document.querySelector('input[name="rad_tiene_oc"]:checked')?.value === 'si';
+}
+
+function esCredito(orden) {
+    return orden.met_pago === 't' || orden.met_pago === true;
+}
+
+function buscarOrden(idOC) {
+    return (ordenesData || []).find(o => String(o.id_ordencompra) === String(idOC));
+}
+
+// ---- Resumen en el formulario ----
+function renderOCSelected() {
+    const idOC = val('new-id-ordencompra');
+    const orden = idOC ? buscarOrden(idOC) : null;
+    const caja = document.getElementById('oc-selected');
+
+    if (!orden) {
+        caja?.classList.remove('sel');
+        setText('oc-selected-num', 'Ninguna orden seleccionada');
+        setText('oc-selected-meta', 'Busque la orden que corresponde a esta factura.');
+        return;
+    }
+
+    caja?.classList.add('sel');
+    setText('oc-selected-num', `OC #${orden.id_ordencompra} — ${orden.nom_tercero}`);
+    setText('oc-selected-meta', `${formatDate(orden.fec_emision)} · ${orden.nom_ciudad ?? ''} · ${esCredito(orden) ? 'Crédito' : 'Contado'} · ${formatCurrency(orden.val_total)}`);
+}
+
+function limpiarSeleccionOC() {
+    setVal('new-id-ordencompra', '');
+    ocPendiente = '';
+    renderOCSelected();
+}
+
+// ---- Lista dentro del modal ----
+function renderOrdenes() {
+    const lista = document.getElementById('oc-list');
+    if (!lista) return;
+
+    const query  = val('oc-search').toLowerCase().trim();
+    const prov   = val('oc-filtro-proveedor');
+    const desde  = val('oc-fec-desde');
+    const hasta  = val('oc-fec-hasta');
+
+    const visibles = (ordenesData || []).filter(o => {
+        const texto = `${o.id_ordencompra} ${o.nom_tercero}`.toLowerCase();
+        if (query && !texto.includes(query)) return false;
+        if (prov && o.id_proveedor !== prov) return false;
+        if (desde && o.fec_emision < desde) return false;
+        if (hasta && o.fec_emision > hasta) return false;
+        if (ocMetodo === 'credito' && !esCredito(o)) return false;
+        if (ocMetodo === 'contado' && esCredito(o)) return false;
+        return true;
+    });
+
+    setText('oc-count', `${visibles.length} ${visibles.length === 1 ? 'orden' : 'órdenes'}`);
+
+    const clearBtn = document.getElementById('btn-oc-clear');
+    if (clearBtn) {
+        clearBtn.style.display = (query || prov || desde || hasta || ocMetodo !== 'all') ? '' : 'none';
+    }
+
+    if (visibles.length === 0) {
+        lista.innerHTML = '<p class="oc-vacio">Ninguna orden coincide con estos filtros.</p>';
+    } else {
+        lista.innerHTML = visibles.map(o => `
+            <label class="oc-row ${String(o.id_ordencompra) === ocPendiente ? 'sel' : ''}" data-id-oc="${escapeHtml(o.id_ordencompra)}">
+                <input type="radio" name="rad_oc_sel" value="${escapeHtml(o.id_ordencompra)}"
+                       ${String(o.id_ordencompra) === ocPendiente ? 'checked' : ''}>
+                <span class="oc-row-info">
+                    <span class="oc-row-num">OC #${escapeHtml(o.id_ordencompra)} — ${escapeHtml(o.nom_tercero)}</span>
+                    <span class="oc-row-meta">${formatDate(o.fec_emision)} · ${escapeHtml(o.nom_ciudad ?? '')} · ${esCredito(o) ? 'Crédito' : 'Contado'}</span>
+                </span>
+                <span class="oc-row-valor">${formatCurrency(o.val_total)}</span>
+            </label>
+        `).join('');
+
+        lista.querySelectorAll('.oc-row').forEach(row => {
+            row.addEventListener('click', () => {
+                ocPendiente = row.dataset.idOc;
+                lista.querySelectorAll('.oc-row').forEach(r => r.classList.remove('sel'));
+                row.classList.add('sel');
+                const btn = document.getElementById('btn-confirm-oc');
+                if (btn) btn.disabled = false;
+            });
+        });
+    }
+
+    const btn = document.getElementById('btn-confirm-oc');
+    if (btn) btn.disabled = !ocPendiente;
+}
+
+function clearOCFilters() {
+    setVal('oc-search', '');
+    setVal('oc-filtro-proveedor', '');
+    setVal('oc-fec-desde', '');
+    setVal('oc-fec-hasta', '');
+    ocMetodo = 'all';
+    document.querySelectorAll('.oc-toggle').forEach(b => b.classList.remove('active'));
+    document.querySelector('.oc-toggle[data-met="all"]')?.classList.add('active');
+    renderOrdenes();
+}
+
+// ---- Abrir / cerrar el modal del selector ----
+function openOCModal() {
+    ocPendiente = val('new-id-ordencompra');
+
+    // El filtro arranca en el proveedor ya elegido para la factura
+    const prov = val('new-id-proveedor');
+    setVal('oc-search', '');
+    setVal('oc-filtro-proveedor', prov || '');
+    setVal('oc-fec-desde', '');
+    setVal('oc-fec-hasta', '');
+    ocMetodo = 'all';
+    document.querySelectorAll('.oc-toggle').forEach(b => b.classList.remove('active'));
+    document.querySelector('.oc-toggle[data-met="all"]')?.classList.add('active');
+
+    renderOrdenes();
+    show('modal-oc');
+}
+
+function closeOCModal() {
+    hide('modal-oc');
+}
+
+function confirmOC() {
+    if (!ocPendiente) return;
+
+    const orden = buscarOrden(ocPendiente);
+    setVal('new-id-ordencompra', ocPendiente);
+
+    // La orden manda: su proveedor y su total pasan a la factura
+    if (orden) {
+        setVal('new-id-proveedor', orden.id_proveedor);
+        setVal('new-val-factura', Number(orden.val_total));
+        updateVencimientoPreview();
+        updateCuotaPreview();
+    }
+
+    renderOCSelected();
+    closeOCModal();
+}
+
+function toggleOCPicker() {
+    const picker = document.getElementById('oc-picker');
+    if (!picker) return;
+
+    if (tieneOrdenCompra()) {
+        picker.style.display = '';
+        renderOCSelected();
+        // Decir "sí" lleva directo a buscar la orden
+        if (!val('new-id-ordencompra')) openOCModal();
+    } else {
+        picker.style.display = 'none';
+        limpiarSeleccionOC();
+    }
+}
+
+// ============================================================
 // 3. MODAL: NUEVA FACTURA
 // ============================================================
 function openNewModal() {
     clearAllFieldErrors('new');
+    const radNo = document.querySelector('input[name="rad_tiene_oc"][value="no"]');
+    if (radNo) radNo.checked = true;
+    limpiarSeleccionOC();
+    toggleOCPicker();
     setVal('new-id-factura', '');
     setVal('new-id-proveedor', '');
     setVal('new-fec-emision', new Date().toISOString().slice(0, 10));
@@ -244,6 +416,31 @@ document.addEventListener('DOMContentLoaded', function() {
 function initFacturaModule() {
     document.getElementById('btn-add-factura')?.addEventListener('click', openNewModal);
 
+    document.querySelectorAll('input[name="rad_tiene_oc"]')
+        .forEach(r => r.addEventListener('change', toggleOCPicker));
+    document.getElementById('btn-open-oc-modal')?.addEventListener('click', openOCModal);
+    document.getElementById('close-oc-modal')?.addEventListener('click', closeOCModal);
+    document.getElementById('cancel-oc-modal')?.addEventListener('click', closeOCModal);
+    document.getElementById('btn-confirm-oc')?.addEventListener('click', confirmOC);
+    document.getElementById('modal-oc')?.addEventListener('click', e => {
+        if (e.target.id === 'modal-oc') closeOCModal();
+    });
+
+    ['oc-search', 'oc-filtro-proveedor', 'oc-fec-desde', 'oc-fec-hasta'].forEach(id => {
+        const el = document.getElementById(id);
+        el?.addEventListener(id === 'oc-search' ? 'input' : 'change', renderOrdenes);
+    });
+    document.getElementById('btn-oc-clear')?.addEventListener('click', clearOCFilters);
+
+    document.querySelectorAll('.oc-toggle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.oc-toggle').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            ocMetodo = this.dataset.met;
+            renderOrdenes();
+        });
+    });
+
     document.getElementById('factura-search')?.addEventListener('input', applyFilters);
     document.getElementById('btn-clear-filters')?.addEventListener('click', clearFilters);
 
@@ -269,7 +466,12 @@ function initFacturaModule() {
     });
 
     // Recalcular vencimiento y preview de cuotas en vivo
-    document.getElementById('new-id-proveedor')?.addEventListener('change', updateVencimientoPreview);
+    document.getElementById('new-id-proveedor')?.addEventListener('change', function() {
+        updateVencimientoPreview();
+        // Una orden de otro proveedor ya no aplica a esta factura
+        const orden = buscarOrden(val('new-id-ordencompra'));
+        if (orden && orden.id_proveedor !== this.value) limpiarSeleccionOC();
+    });
     document.getElementById('new-fec-emision')?.addEventListener('change', updateVencimientoPreview);
     document.getElementById('new-val-factura')?.addEventListener('input', updateCuotaPreview);
     document.getElementById('new-num-cuotas')?.addEventListener('input', updateCuotaPreview);
@@ -278,6 +480,11 @@ function initFacturaModule() {
     document.getElementById('new-btn-save')?.addEventListener('click', async function() {
         const form = document.getElementById('new-factura-form');
         clearAllFieldErrors('new');
+        if (tieneOrdenCompra() && !val('new-id-ordencompra')) {
+            showFieldError('err-new-oc', 'Seleccione la orden de compra de la factura.');
+            return;
+        }
+
         const formData = new FormData(form);
 
         try {
