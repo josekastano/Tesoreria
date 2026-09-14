@@ -55,12 +55,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // des_motivo VARCHAR(100) CHECK(LENGTH >= 3)
-            if (mb_strlen($des_motivo) < 3 || mb_strlen($des_motivo) > 100) {
+            if (strlen($des_motivo) < 3 || strlen($des_motivo) > 100) {
                 $errores['err-new-descripcion'] = 'La descripción debe tener entre 3 y 100 caracteres.';
             }
 
             // cod_bancario VARCHAR(10), opcional
-            if ($cod_bancario !== '' && mb_strlen($cod_bancario) > 10) {
+            if ($cod_bancario !== '' && strlen($cod_bancario) > 10) {
                 $errores['err-new-codigo'] = 'El código bancario no puede superar 10 caracteres.';
             }
 
@@ -95,10 +95,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($id_motivo === '' || !ctype_digit($id_motivo)) {
                 $errores['err-edit-descripcion'] = 'Motivo no válido.';
             }
-            if (mb_strlen($des_motivo) < 3 || mb_strlen($des_motivo) > 100) {
+            if (strlen($des_motivo) < 3 || strlen($des_motivo) > 100) {
                 $errores['err-edit-descripcion'] = 'La descripción debe tener entre 3 y 100 caracteres.';
             }
-            if ($cod_bancario !== '' && mb_strlen($cod_bancario) > 10) {
+            if ($cod_bancario !== '' && strlen($cod_bancario) > 10) {
                 $errores['err-edit-codigo'] = 'El código bancario no puede superar 10 caracteres.';
             }
 

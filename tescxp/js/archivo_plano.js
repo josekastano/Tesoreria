@@ -1,6 +1,19 @@
 'use strict';
 
 // ============================================================
+// 0. AISLAMIENTO DEL MÓDULO
+// ============================================================
+// Este archivo se referencia dos veces desde archivo_plano.php
+// ($page_extra_js con "../modules/..." y el <script> del final con
+// "modules/..."). Si ambas rutas resuelven, la segunda copia moría con
+// "Identifier 'proveedoresCronograma' has already been declared" y ensuciaba
+// la consola. Al encerrar todo en una IIFE cada copia tiene su propio ámbito,
+// y el guard de initArchivoModule() evita que se registren los listeners dos
+// veces. Las funciones que se usan desde atributos onclick del HTML se siguen
+// exponiendo explícitamente en window (ver más abajo).
+(function () {
+
+// ============================================================
 // 1. HELPERS GENERALES
 // ============================================================
 function val(id)           { return document.getElementById(id)?.value ?? ''; }
@@ -62,23 +75,30 @@ function escapeHtml(str) {
 // ============================================================
 // 2. CARGA DINÁMICA DE PROVEEDORES/CUENTAS AL ELEGIR CRONOGRAMA
 // ============================================================
-let filasCronogramaActual = [];
+// El backend ya no devuelve una fila por (cuota x cuenta): devuelve un arreglo
+// de proveedores, cada uno con sus cuotas y sus cuentas bancarias activas. El
+// front solo tiene que elegir una cuenta por proveedor.
+let proveedoresCronograma = [];
+
+function tipoCuentaTxt(valor) {
+    return (valor === 't' || valor === true || valor === 'true' || valor === '1') ? 'Corriente' : 'Ahorros';
+}
 
 function onCronogramaChange() {
     const idCronograma = val('new-id-cronograma');
     const hint = document.getElementById('prov-cuentas-hint');
     const list = document.getElementById('prov-cuentas-list');
 
+    proveedoresCronograma = [];
+    setVal('hid-ctas-proveedor', '');
+    if (list) { list.style.display = 'none'; list.innerHTML = ''; }
+
     if (!idCronograma) {
-        filasCronogramaActual = [];
-        setVal('hid-filas-archivo', '');
         if (hint) { hint.style.display = ''; hint.textContent = 'Seleccione primero un cronograma para ver los proveedores a pagar.'; }
-        if (list) { list.style.display = 'none'; list.innerHTML = ''; }
         return;
     }
 
     if (hint) { hint.style.display = ''; hint.textContent = 'Cargando proveedores del cronograma...'; }
-    if (list) { list.style.display = 'none'; list.innerHTML = ''; }
 
     const formData = new FormData();
     formData.append('btn_cargar_crono', '1');
@@ -88,129 +108,131 @@ function onCronogramaChange() {
         .then(res => res.text())
         .then(text => {
             let result;
-            try { result = JSON.parse(text); } catch (e) { result = { success: false }; }
+            try {
+                result = JSON.parse(text);
+            } catch (e) {
+                console.error('[archivo_plano] Respuesta no JSON en btn_cargar_crono:', text);
+                result = { success: false, message: 'El servidor no devolvió JSON (revise la consola).' };
+            }
 
-            if (!result.success || !result.filas || result.filas.length === 0) {
-                if (hint) { hint.style.display = ''; hint.textContent = 'Este cronograma no tiene proveedores con cuentas bancarias registradas.'; }
-                filasCronogramaActual = [];
-                setVal('hid-filas-archivo', '');
+            if (!result.success) {
+                console.error('[archivo_plano] btn_cargar_crono falló:', result.message || text);
+                if (result.debug_origen)        console.error('[archivo_plano] origen:', result.debug_origen);
+                if (result.debug_salida_previa) console.error('[archivo_plano] salida previa del servidor:', result.debug_salida_previa);
+                if (hint) {
+                    hint.style.display = '';
+                    hint.textContent = 'Error al cargar el cronograma: ' + (result.message || 'sin detalle del servidor.');
+                }
                 return;
             }
 
-            filasCronogramaActual = result.filas;
-            renderProveedorCuentas(result.filas);
+            if (!Array.isArray(result.proveedores) || result.proveedores.length === 0) {
+                if (hint) {
+                    hint.style.display = '';
+                    hint.textContent = 'Este cronograma no tiene cuotas asociadas.';
+                }
+                return;
+            }
+
+            proveedoresCronograma = result.proveedores;
+            renderProveedorCuentas(proveedoresCronograma);
         })
-        .catch(() => {
-            if (hint) { hint.style.display = ''; hint.textContent = 'Error al cargar el cronograma.'; }
+        .catch(err => {
+            console.error('[archivo_plano] Error de red en btn_cargar_crono:', err);
+            if (hint) { hint.style.display = ''; hint.textContent = 'Error de conexión al cargar el cronograma.'; }
         });
 }
 
-function renderProveedorCuentas(filas) {
+function renderProveedorCuentas(proveedores) {
     const hint = document.getElementById('prov-cuentas-hint');
     const list = document.getElementById('prov-cuentas-list');
     if (!list) return;
 
-    // Agrupar filas por proveedor: cada proveedor puede tener varias cuotas y
-    // varias cuentas bancarias disponibles; el usuario elige una cuenta por proveedor.
-    const grupos = {};
-    filas.forEach(f => {
-        if (!grupos[f.id_proveedor]) {
-            grupos[f.id_proveedor] = {
-                nom_tercero: f.nom_tercero,
-                cuentas: new Map(),
-                cuotas: []
-            };
-        }
-        const grupo = grupos[f.id_proveedor];
-        grupo.cuentas.set(f.cta_proveedor, { tipo: f.ind_tipocuenta, banco: f.nom_banco_proveedor });
-        const yaExiste = grupo.cuotas.some(c => c.id_factura === f.id_factura && c.id_cuota === f.id_cuota);
-        if (!yaExiste) {
-            grupo.cuotas.push({ id_factura: f.id_factura, id_cuota: f.id_cuota, val_a_pagar: f.val_a_pagar });
-        }
-    });
+    const sinCuenta = proveedores.filter(p => !p.cuentas || p.cuentas.length === 0);
 
-    if (hint) hint.style.display = 'none';
+    if (hint) {
+        if (sinCuenta.length > 0) {
+            hint.style.display = '';
+            hint.textContent = sinCuenta.length + ' proveedor(es) sin cuenta bancaria activa. Regístrela en Bancos por Proveedor para poder generar el archivo.';
+        } else {
+            hint.style.display = 'none';
+        }
+    }
+
     list.style.display = '';
-    list.innerHTML = Object.entries(grupos).map(([idProv, grupo]) => {
-        const cuentasArr = Array.from(grupo.cuentas.entries());
-        const totalProveedor = grupo.cuotas.reduce((s, c) => s + parseFloat(c.val_a_pagar || 0), 0);
-        const cuotasTexto = grupo.cuotas.map(c => `Fact. #${c.id_factura} Cta. ${c.id_cuota}`).join(', ');
+    list.innerHTML = proveedores.map(p => {
+        const cuentas     = p.cuentas || [];
+        const cuotasTexto = (p.cuotas || []).map(c => `Fact. #${c.id_factura} Cta. ${c.id_cuota}`).join(', ');
 
         let selectorHtml;
-        if (cuentasArr.length === 1) {
-            const [cta, info] = cuentasArr[0];
-            const tipoTxt = (info.tipo === 't' || info.tipo === true) ? 'Corriente' : 'Ahorros';
-            selectorHtml = `<span class="cuota-picker-fecha">${escapeHtml(info.banco)} — ${escapeHtml(cta)} (${tipoTxt})</span>`;
+        if (cuentas.length === 0) {
+            selectorHtml = '<span class="field-error visible">Sin cuenta bancaria activa registrada</span>';
+        } else if (cuentas.length === 1) {
+            const c = cuentas[0];
+            selectorHtml = `<span class="cuota-picker-fecha">${escapeHtml(c.nom_banco)} — ${escapeHtml(c.cta_proveedor)} (${tipoCuentaTxt(c.ind_tipocuenta)})</span>`;
         } else {
             selectorHtml = `
-                <select class="form-select prov-cta-select" data-id-prov="${escapeHtml(idProv)}" style="margin-top:4px">
-                    ${cuentasArr.map(([cta, info]) => {
-                        const tipoTxt = (info.tipo === 't' || info.tipo === true) ? 'Corriente' : 'Ahorros';
-                        return `<option value="${escapeHtml(cta)}:${info.tipo}">${escapeHtml(info.banco)} — ${escapeHtml(cta)} (${tipoTxt})</option>`;
-                    }).join('')}
+                <select class="form-select prov-cta-select" data-id-prov="${escapeHtml(p.id_proveedor)}" style="margin-top:4px">
+                    ${cuentas.map(c => `<option value="${escapeHtml(c.cta_proveedor)}">${escapeHtml(c.nom_banco)} — ${escapeHtml(c.cta_proveedor)} (${tipoCuentaTxt(c.ind_tipocuenta)})</option>`).join('')}
                 </select>
             `;
         }
 
         return `
-            <div class="cuota-picker-row" style="cursor:default" data-id-prov="${escapeHtml(idProv)}">
+            <div class="cuota-picker-row" style="cursor:default" data-id-prov="${escapeHtml(p.id_proveedor)}">
                 <i class="fas fa-building" style="color:#94a3b8"></i>
                 <div class="cuota-picker-info">
-                    <span class="cuota-picker-prov">${escapeHtml(grupo.nom_tercero)}</span>
+                    <span class="cuota-picker-prov">${escapeHtml(p.nom_tercero)}</span>
                     <span class="cuota-picker-fecha">${escapeHtml(cuotasTexto)}</span>
                     ${selectorHtml}
                 </div>
-                <span class="cuota-picker-valor">${formatCurrency(totalProveedor)}</span>
+                <span class="cuota-picker-valor">${formatCurrency(p.total)}</span>
             </div>
         `;
     }).join('');
 
     list.querySelectorAll('.prov-cta-select').forEach(sel => {
-        sel.addEventListener('change', buildFilasArchivoPayload);
+        sel.addEventListener('change', buildCtasProveedorPayload);
     });
 
-    buildFilasArchivoPayload();
+    buildCtasProveedorPayload();
 }
 
-function buildFilasArchivoPayload() {
-    // Construye "id_factura:id_cuota:id_proveedor:cta_proveedor:tipocuenta,..."
-    // resolviendo, por cada proveedor, la cuenta elegida.
-    const cuentaPorProveedorSelect = {};
-    document.querySelectorAll('#prov-cuentas-list [data-id-prov]').forEach(row => {
-        const idProv = row.dataset.idProv;
-        const select = row.querySelector('.prov-cta-select');
-        if (select) {
-            cuentaPorProveedorSelect[idProv] = select.value; // "cta:tipo"
-        }
+function buildCtasProveedorPayload() {
+    // Construye "id_proveedor:cta_proveedor,...". Las cuotas ya no se envían:
+    // el servidor las lee del cronograma.
+    const elegidas = {};
+    document.querySelectorAll('#prov-cuentas-list .prov-cta-select').forEach(sel => {
+        elegidas[sel.dataset.idProv] = sel.value;
     });
 
-    // Para proveedores sin select (una sola cuenta), tomar esa cuenta directo de los datos originales
-    const cuentaUnicaPorProveedor = {};
-    filasCronogramaActual.forEach(f => {
-        if (!cuentaUnicaPorProveedor[f.id_proveedor]) {
-            cuentaUnicaPorProveedor[f.id_proveedor] = `${f.cta_proveedor}:${f.ind_tipocuenta}`;
-        }
+    const pares = proveedoresCronograma
+        .filter(p => p.cuentas && p.cuentas.length > 0)
+        .map(p => {
+            const cta = elegidas[String(p.id_proveedor)] || p.cuentas[0].cta_proveedor;
+            return `${p.id_proveedor}:${cta}`;
+        });
+
+    setVal('hid-ctas-proveedor', pares.join(','));
+}
+
+// La cuenta de origen debe ser del mismo banco al que se entrega el archivo,
+// así que el combo de cuentas de empresa se filtra por el banco elegido.
+function filtrarCtasEmpresaPorBanco() {
+    const idBanco = val('new-id-banco');
+    const sel     = document.getElementById('new-cta-empresa');
+    if (!sel) return;
+
+    let seleccionValida = false;
+    Array.from(sel.options).forEach(op => {
+        if (!op.value) return;
+        const coincide = !idBanco || op.dataset.idBanco === idBanco;
+        op.hidden   = !coincide;
+        op.disabled = !coincide;
+        if (coincide && op.value === sel.value) seleccionValida = true;
     });
 
-    // IMPORTANTE: filasCronogramaActual trae una fila por cada combinación
-    // cuota x cuenta_bancaria_del_proveedor. Si un proveedor tiene más de una
-    // cuenta registrada en tab_bancoxprov, la MISMA cuota (id_factura+id_cuota)
-    // aparece repetida en el arreglo. Hay que deduplicar por cuota aquí, o se
-    // termina mandando la misma fila dos veces en el mismo payload y el backend
-    // la intenta insertar dos veces en el mismo archivo plano.
-    const cuotasVistas = new Set();
-    const filasPayload = [];
-    filasCronogramaActual.forEach(f => {
-        const claveCuota = `${f.id_factura}:${f.id_cuota}`;
-        if (cuotasVistas.has(claveCuota)) return;
-        cuotasVistas.add(claveCuota);
-
-        const cuentaElegida = cuentaPorProveedorSelect[f.id_proveedor] || cuentaUnicaPorProveedor[f.id_proveedor];
-        const [cta, tipo] = cuentaElegida.split(':');
-        filasPayload.push(`${f.id_factura}:${f.id_cuota}:${f.id_proveedor}:${cta}:${tipo}`);
-    });
-
-    setVal('hid-filas-archivo', filasPayload.join(','));
+    if (!seleccionValida) sel.value = '';
 }
 
 // ============================================================
@@ -222,8 +244,9 @@ function openNewModal() {
     setVal('new-id-banco', '');
     setVal('new-nom-archivo', '');
     setVal('new-cta-empresa', '');
-    setVal('hid-filas-archivo', '');
-    filasCronogramaActual = [];
+    setVal('hid-ctas-proveedor', '');
+    proveedoresCronograma = [];
+    filtrarCtasEmpresaPorBanco();
 
     const hint = document.getElementById('prov-cuentas-hint');
     const list = document.getElementById('prov-cuentas-list');
@@ -294,7 +317,7 @@ function openDetailModal(archivo) {
 
             if (result.success && result.detalle && result.detalle.length > 0) {
                 detalleList.innerHTML = result.detalle.map(d => {
-                    const tipoTxt = (d.ind_tipocuenta === 't' || d.ind_tipocuenta === true) ? 'Corriente' : 'Ahorros';
+                    const tipoTxt = tipoCuentaTxt(d.ind_tipocuenta);
                     return `
                         <div class="cuota-row">
                             <span class="cuota-num">${escapeHtml(d.nom_tercero)}<br><small style="color:#94a3b8;font-weight:400">Cta. ${escapeHtml(d.cta_proveedor)} (${tipoTxt}) — Fact. #${d.id_factura}/${d.id_cuota}</small></span>
@@ -360,11 +383,18 @@ function clearFilters() {
 // ============================================================
 // 7. INICIALIZACIÓN GENERAL
 // ============================================================
-document.addEventListener('DOMContentLoaded', function() {
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initArchivoModule);
+} else {
+    // El script se cargó después de que el DOM ya estaba listo.
     initArchivoModule();
-});
+}
 
 function initArchivoModule() {
+    // Guard: si el archivo se carga dos veces, los listeners se registran una sola vez.
+    if (window.__archivoPlanoInit) return;
+    window.__archivoPlanoInit = true;
+
     document.getElementById('btn-add-archivo')?.addEventListener('click', openNewModal);
 
     document.getElementById('archivo-search')?.addEventListener('input', applyFilters);
@@ -379,6 +409,7 @@ function initArchivoModule() {
     });
 
     document.getElementById('new-id-cronograma')?.addEventListener('change', onCronogramaChange);
+    document.getElementById('new-id-banco')?.addEventListener('change', filtrarCtasEmpresaPorBanco);
 
     document.querySelectorAll('.btn-close-new-modal, .btn-cancel-new-modal')
         .forEach(btn => btn.addEventListener('click', closeNewModal));
@@ -409,14 +440,29 @@ function initArchivoModule() {
 
         const form = document.getElementById('new-archivo-form');
         clearAllFieldErrors('new');
-        buildFilasArchivoPayload();
+
+        try {
+            buildCtasProveedorPayload();
+        } catch (e) {
+            // Nunca debe abortar el envío: si el front no logra armar la
+            // selección de cuentas, el servidor usa la primera cuenta activa
+            // de cada proveedor.
+            console.error('[archivo_plano] No se pudo armar la selección de cuentas:', e);
+        }
+
         const formData = new FormData(form);
 
         try {
             const response = await fetch(window.location.href, { method: 'POST', body: formData });
             const text = await response.text();
             let result;
-            try { result = JSON.parse(text); } catch (e) { result = { success: false, message: 'Respuesta inválida del servidor' }; }
+            try { result = JSON.parse(text); } catch (e) { result = { success: false, message: 'Respuesta inválida del servidor (revise la consola).' }; }
+
+            if (!result.success) {
+                console.error('[archivo_plano] btn_nuevo falló. Respuesta cruda:', text);
+                if (result.debug_origen)        console.error('[archivo_plano] origen:', result.debug_origen);
+                if (result.debug_salida_previa) console.error('[archivo_plano] salida previa del servidor:', result.debug_salida_previa);
+            }
 
             if (result.success) {
                 showToast(result.message, 'success');
@@ -460,3 +506,5 @@ function initArchivoModule() {
         }
     });
 }
+
+})();

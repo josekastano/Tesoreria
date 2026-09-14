@@ -61,11 +61,122 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        // ---------- APLICAR RESPUESTA DEL BANCO (CSV) ----------
+        if (isset($_POST['btn_importar'])) {
+            $filas_json = $_POST['hid_filas_importar'] ?? '';
+            $filas      = json_decode($filas_json, true);
+
+            if (!is_array($filas) || count($filas) === 0) {
+                throw new Exception('No se recibió ninguna fila para aplicar.');
+            }
+
+            // Mapa cod_bancario -> id_motivo_rechazo (solo motivos activos)
+            $list_motivos_rechazo->execute();
+            $mapa_motivos = [];
+            foreach ($list_motivos_rechazo->fetchAll(PDO::FETCH_ASSOC) as $m) {
+                $cod = trim((string)($m['cod_bancario'] ?? ''));
+                if ($cod !== '') {
+                    $mapa_motivos[strtoupper($cod)] = (int)$m['id_motivo_rechazo'];
+                }
+            }
+
+            $aplicadas = 0;
+            $omitidas  = [];
+
+            $conexion->beginTransaction();
+
+            foreach ($filas as $f) {
+                $id_pago = trim((string)($f['id_pago'] ?? ''));
+                $estado  = strtoupper(trim((string)($f['estado_pago'] ?? '')));
+                $ref     = trim((string)($f['referencia_bancaria'] ?? ''));
+                $cod     = strtoupper(trim((string)($f['cod_bancario'] ?? '')));
+
+                if ($id_pago === '' || !ctype_digit($id_pago)) {
+                    $omitidas[] = "Pago '{$id_pago}': identificador no válido.";
+                    continue;
+                }
+
+                // estado_pago CHECK IN ('PENDIENTE','APROBADO','RECHAZADO')
+                if (!in_array($estado, ['APROBADO', 'RECHAZADO'], true)) {
+                    $omitidas[] = "Pago #{$id_pago}: el estado '{$estado}' no es APROBADO ni RECHAZADO.";
+                    continue;
+                }
+
+                // referencia_bancaria VARCHAR(30)
+                if (mb_strlen($ref) > 30) {
+                    $omitidas[] = "Pago #{$id_pago}: la referencia bancaria supera 30 caracteres.";
+                    continue;
+                }
+
+                // id_motivo_rechazo es obligatorio si el estado es RECHAZADO
+                $id_motivo = null;
+                if ($estado === 'RECHAZADO') {
+                    if ($cod === '') {
+                        $omitidas[] = "Pago #{$id_pago}: rechazado sin código bancario.";
+                        continue;
+                    }
+                    if (!isset($mapa_motivos[$cod])) {
+                        $omitidas[] = "Pago #{$id_pago}: el código '{$cod}' no está en el catálogo de motivos.";
+                        continue;
+                    }
+                    $id_motivo = $mapa_motivos[$cod];
+                }
+
+                // Solo se aplica sobre pagos que siguen en PENDIENTE
+                $det_pago_cxp->execute([':wid_pago' => (int)$id_pago]);
+                $pago_actual = $det_pago_cxp->fetch(PDO::FETCH_ASSOC);
+
+                if (!$pago_actual) {
+                    $omitidas[] = "Pago #{$id_pago}: no existe en el sistema.";
+                    continue;
+                }
+                if ($pago_actual['estado_pago'] !== 'PENDIENTE') {
+                    $omitidas[] = "Pago #{$id_pago}: ya está en {$pago_actual['estado_pago']}.";
+                    continue;
+                }
+
+                $upd_pago_cxp_estado->execute([
+                    ':wid_pago'             => (int)$id_pago,
+                    ':westado_pago'         => $estado,
+                    ':wreferencia_bancaria' => $ref !== '' ? $ref : null,
+                    ':wid_motivo_rechazo'   => $id_motivo,
+                ]);
+
+                // APROBADO descuenta el saldo de la factura y marca la cuota como pagada
+                if ($estado === 'APROBADO') {
+                    $upd_cuota_pagada->execute([
+                        ':wid_factura' => (int)$pago_actual['id_factura'],
+                        ':wid_cuota'   => (int)$pago_actual['id_cuota'],
+                    ]);
+                    $upd_factura_saldo->execute([
+                        ':wid_factura' => (int)$pago_actual['id_factura'],
+                        ':wval_pago'   => (float)$pago_actual['val_pago'],
+                    ]);
+                }
+
+                $aplicadas++;
+            }
+
+            $conexion->commit();
+
+            $respuesta['success']   = $aplicadas > 0;
+            $respuesta['aplicadas'] = $aplicadas;
+            $respuesta['omitidas']  = $omitidas;
+            $respuesta['message']   = $aplicadas > 0
+                ? "Se aplicaron {$aplicadas} pago(s)." . (count($omitidas) ? ' ' . count($omitidas) . ' fila(s) omitida(s).' : '')
+                : 'Ninguna fila se pudo aplicar.';
+            echo json_encode($respuesta);
+            exit;
+        }
+
         $respuesta['message'] = 'Acción no válida.';
         echo json_encode($respuesta);
         exit;
 
     } catch (Exception $e) {
+        if (isset($conexion) && $conexion->inTransaction()) {
+            $conexion->rollBack();
+        }
         $mensaje = limpiar_error_pgsql($e->getMessage());
         if (empty($mensaje)) {
             $mensaje = $e->getMessage();
@@ -139,9 +250,10 @@ ob_start();
             <h1>Historial de Pagos</h1>
             <p>Consulta de todos los pagos registrados sobre cuotas de facturas</p>
         </div>
-        <button id="btn-export-historial" class="btn btn-primary">
-            <i class="fas fa-download"></i> Exportar CSV
+        <button id="btn-import-historial" class="btn btn-primary">
+            <i class="fas fa-upload"></i> Importar respuesta del banco
         </button>
+        <input type="file" id="csv-input" accept=".csv,text/csv" style="display:none">
     </div>
 
     <!-- STATS -->
@@ -275,6 +387,56 @@ ob_start();
     </div>
 </div>
 
+<!-- MODAL: IMPORTAR RESPUESTA DEL BANCO -->
+<div id="modal-import" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width:700px">
+        <div class="modal-header green">
+            <div>
+                <h2>Importar respuesta del banco</h2>
+                <p id="import-subtitle">Revise las filas antes de aplicarlas</p>
+            </div>
+            <button class="modal-close" id="close-import-modal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="import-form" novalidate>
+                <input type="hidden" name="btn_importar" value="1">
+                <input type="hidden" name="hid_filas_importar" id="hid-filas-importar" value="">
+
+                <p class="config-hint">
+                    <i class="fas fa-info-circle"></i>
+                    <span>El archivo debe traer las columnas <strong>id_pago</strong>, <strong>estado_pago</strong>
+                    (APROBADO o RECHAZADO), <strong>referencia_bancaria</strong> y <strong>cod_bancario</strong>
+                    (obligatorio en los rechazos). Solo se aplican los pagos que estén en estado Pendiente.</span>
+                </p>
+
+                <div class="import-resumen" id="import-resumen">
+                    <div class="import-resumen-item ok">
+                        <span class="import-resumen-label">Por aplicar</span>
+                        <span class="import-resumen-valor" id="import-validas">0</span>
+                    </div>
+                    <div class="import-resumen-item bad">
+                        <span class="import-resumen-label">Con errores</span>
+                        <span class="import-resumen-valor" id="import-invalidas">0</span>
+                    </div>
+                    <div class="import-resumen-item">
+                        <span class="import-resumen-label">Filas leídas</span>
+                        <span class="import-resumen-valor" id="import-total">0</span>
+                    </div>
+                </div>
+
+                <h4 class="detail-subheading"><i class="fas fa-list-check"></i> Filas del archivo</h4>
+                <div id="import-filas-list" class="import-list"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancel-import-modal">Cancelar</button>
+            <button type="button" id="import-btn-apply" class="btn btn-primary" disabled>
+                <i class="fas fa-check"></i> Aplicar pagos
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL: DETALLE DEL PAGO -->
 <div id="modal-detail" class="modal-overlay hidden">
     <div class="modal-box" style="max-width:560px">
@@ -302,8 +464,8 @@ ob_start();
 const pagosData = <?= json_encode($pagos) ?>;
 </script>
 
-<!-- SCRIPTS JS -->
 <script src="modules/tescxp/js/pagos_tescxp.js"></script>
+
 
 <?php
 $moduleContent = ob_get_clean();

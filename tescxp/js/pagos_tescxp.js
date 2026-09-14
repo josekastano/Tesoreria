@@ -168,67 +168,210 @@ function closeDetailModal() {
 window.openDetailModal = openDetailModal;
 
 // ============================================================
-// 4. EXPORTAR A CSV
+// 4. IMPORTAR RESPUESTA DEL BANCO (CSV)
 // ============================================================
-// Exporta exactamente lo que el usuario está viendo: se respetan los filtros.
-function csvCampo(valor) {
-    const texto = String(valor ?? '');
-    // Comillas dobles y separador: se escapa el campo completo
-    return /[";\n\r]/.test(texto) ? '"' + texto.replace(/"/g, '""') + '"' : texto;
+// El banco devuelve un archivo con el resultado de cada giro. Aquí se lee,
+// se valida contra los pagos PENDIENTE y se muestra antes de aplicar nada.
+let filasImportadas = [];
+
+// Detecta ';' o ',' según cuál aparezca más en el encabezado
+function detectarSeparador(linea) {
+    const puntoYComa = (linea.match(/;/g) || []).length;
+    const coma       = (linea.match(/,/g) || []).length;
+    return puntoYComa >= coma ? ';' : ',';
 }
 
-function exportarCSV() {
-    const idsVisibles = applyFilters();
+// Parser de una línea CSV que respeta las comillas dobles
+function parsearLinea(linea, sep) {
+    const campos = [];
+    let actual = '';
+    let enComillas = false;
 
-    if (idsVisibles.length === 0) {
-        showToast('No hay pagos que exportar con los filtros actuales.', 'error');
-        return;
+    for (let i = 0; i < linea.length; i++) {
+        const c = linea[i];
+        if (c === '"') {
+            if (enComillas && linea[i + 1] === '"') { actual += '"'; i++; }
+            else { enComillas = !enComillas; }
+        } else if (c === sep && !enComillas) {
+            campos.push(actual.trim());
+            actual = '';
+        } else {
+            actual += c;
+        }
+    }
+    campos.push(actual.trim());
+    return campos;
+}
+
+function normalizarEncabezado(texto) {
+    return texto.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
+function parsearCSV(texto) {
+    // Quitar BOM y separar en líneas no vacías
+    const lineas = texto.replace(/^\uFEFF/, '')
+        .split(/\r\n|\n|\r/)
+        .filter(l => l.trim() !== '');
+
+    if (lineas.length < 2) {
+        return { error: 'El archivo no tiene filas de datos.' };
     }
 
-    const encabezados = [
-        'ID Pago', 'ID Factura', 'ID Cuota', 'ID Archivo Plano', 'Archivo Plano',
-        'Proveedor', 'Fecha de Pago', 'Valor', 'Estado',
-        'Referencia Bancaria', 'ID Motivo Rechazo', 'Motivo de Rechazo', 'Codigo Bancario'
-    ];
+    const sep = detectarSeparador(lineas[0]);
+    const cols = parsearLinea(lineas[0], sep).map(normalizarEncabezado);
 
-    const filas = idsVisibles.map(id => {
-        const p = pagosData.find(x => Number(x.id_pago) === id);
-        if (!p) return null;
-        return [
-            p.id_pago,
-            p.id_factura,
-            p.id_cuota,
-            p.id_archivo_plano ?? '',
-            p.nom_archivo ?? 'Pago manual',
-            p.nom_tercero ?? '',
-            p.fec_pago ?? '',
-            p.val_pago,
-            p.estado_pago,
-            p.referencia_bancaria ?? '',
-            p.id_motivo_rechazo ?? '',
-            p.des_motivo ?? '',
-            p.cod_bancario ?? ''
-        ];
-    }).filter(Boolean);
+    const iPago   = cols.indexOf('id_pago');
+    const iEstado = cols.indexOf('estado_pago') !== -1 ? cols.indexOf('estado_pago') : cols.indexOf('estado');
+    const iRef    = cols.indexOf('referencia_bancaria') !== -1 ? cols.indexOf('referencia_bancaria') : cols.indexOf('referencia');
+    const iCod    = cols.indexOf('cod_bancario') !== -1 ? cols.indexOf('cod_bancario') : cols.indexOf('codigo_bancario');
 
-    // Separador ';' y BOM para que Excel en español abra el archivo bien
-    const csv = [encabezados, ...filas]
-        .map(fila => fila.map(csvCampo).join(';'))
-        .join('\r\n');
+    if (iPago === -1 || iEstado === -1) {
+        return { error: 'El archivo debe tener al menos las columnas id_pago y estado_pago.' };
+    }
 
-    const hoy = new Date().toISOString().slice(0, 10);
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
+    const filas = lineas.slice(1).map((linea, n) => {
+        const c = parsearLinea(linea, sep);
+        return {
+            linea: n + 2,
+            id_pago: (c[iPago] ?? '').trim(),
+            estado_pago: (c[iEstado] ?? '').trim().toUpperCase(),
+            referencia_bancaria: iRef !== -1 ? (c[iRef] ?? '').trim() : '',
+            cod_bancario: iCod !== -1 ? (c[iCod] ?? '').trim().toUpperCase() : ''
+        };
+    });
 
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `historial_pagos_${hoy}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    return { filas };
+}
 
-    showToast(`${filas.length} pago${filas.length !== 1 ? 's' : ''} exportado${filas.length !== 1 ? 's' : ''}.`, 'success');
+// Valida contra los pagos que ya están en pantalla. El servidor vuelve a
+// validar todo: esto es solo para que el usuario vea qué va a pasar.
+function validarFila(fila) {
+    if (!/^\d+$/.test(fila.id_pago)) {
+        return 'El id_pago no es un número.';
+    }
+
+    const pago = pagosData.find(p => Number(p.id_pago) === Number(fila.id_pago));
+    if (!pago) {
+        return `El pago #${fila.id_pago} no existe en el sistema.`;
+    }
+    if (pago.estado_pago !== 'PENDIENTE') {
+        return `El pago #${fila.id_pago} ya está en ${capEstado(pago.estado_pago)}.`;
+    }
+    if (!['APROBADO', 'RECHAZADO'].includes(fila.estado_pago)) {
+        return `Estado "${fila.estado_pago || 'vacío'}": debe ser APROBADO o RECHAZADO.`;
+    }
+    if (fila.estado_pago === 'RECHAZADO' && fila.cod_bancario === '') {
+        return 'Un rechazo necesita el código bancario del motivo.';
+    }
+    if (fila.referencia_bancaria.length > 30) {
+        return 'La referencia bancaria supera 30 caracteres.';
+    }
+    return null;
+}
+
+function renderImportacion() {
+    const lista = document.getElementById('import-filas-list');
+    const validas   = filasImportadas.filter(f => !f.error);
+    const invalidas = filasImportadas.filter(f => f.error);
+
+    setText('import-total',     filasImportadas.length);
+    setText('import-validas',   validas.length);
+    setText('import-invalidas', invalidas.length);
+
+    if (filasImportadas.length === 0) {
+        lista.innerHTML = '<p class="import-vacio">El archivo no trae filas para aplicar.</p>';
+    } else {
+        lista.innerHTML = filasImportadas.map(f => {
+            const pago = pagosData.find(p => Number(p.id_pago) === Number(f.id_pago));
+            const detalle = f.error
+                ? esc(f.error)
+                : `${capEstado(f.estado_pago)}${f.cod_bancario ? ' — ' + esc(f.cod_bancario) : ''}${f.referencia_bancaria ? ' — Ref. ' + esc(f.referencia_bancaria) : ''}`;
+            return `
+                <div class="import-row ${f.error ? 'invalida' : 'valida'}">
+                    <span class="import-row-icon">
+                        <i class="fas fa-${f.error ? 'xmark' : 'check'}"></i>
+                    </span>
+                    <div class="import-row-info">
+                        <span class="import-row-pago">Pago #${esc(f.id_pago) || '—'}${pago ? ' — ' + esc(pago.nom_tercero) : ''}</span>
+                        <span class="import-row-meta">Línea ${f.linea} · ${detalle}</span>
+                    </div>
+                    <span class="import-row-valor">${pago ? formatMoney(pago.val_pago) : '—'}</span>
+                </div>`;
+        }).join('');
+    }
+
+    setVal('hid-filas-importar', JSON.stringify(validas.map(f => ({
+        id_pago: f.id_pago,
+        estado_pago: f.estado_pago,
+        referencia_bancaria: f.referencia_bancaria,
+        cod_bancario: f.cod_bancario
+    }))));
+
+    const btn = document.getElementById('import-btn-apply');
+    if (btn) btn.disabled = validas.length === 0;
+
+    setText('import-subtitle', validas.length > 0
+        ? `${validas.length} de ${filasImportadas.length} fila(s) se pueden aplicar`
+        : 'Ninguna fila del archivo se puede aplicar');
+}
+
+function leerArchivoCSV(archivo) {
+    const lector = new FileReader();
+
+    lector.onload = e => {
+        const { filas, error } = parsearCSV(String(e.target.result ?? ''));
+
+        if (error) {
+            showToast(error, 'error');
+            return;
+        }
+
+        filasImportadas = filas.map(f => ({ ...f, error: validarFila(f) }));
+        renderImportacion();
+        show('modal-import');
+    };
+
+    lector.onerror = () => showToast('No se pudo leer el archivo.', 'error');
+    lector.readAsText(archivo, 'UTF-8');
+}
+
+function closeImportModal() {
+    hide('modal-import');
+    filasImportadas = [];
+    setVal('csv-input', '');
+}
+
+async function aplicarImportacion() {
+    const form = document.getElementById('import-form');
+    const formData = new FormData(form);
+    const btn = document.getElementById('import-btn-apply');
+
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        });
+        const text = await response.text();
+        let result;
+        try { result = JSON.parse(text); } catch (e) { result = { success: false, message: 'Respuesta inválida del servidor' }; }
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            closeImportModal();
+            location.reload();
+        } else {
+            showToast(result.message || 'No se pudo aplicar la importación', 'error');
+            btn.disabled = false;
+        }
+    } catch (err) {
+        showToast('Error de conexión', 'error');
+        btn.disabled = false;
+    }
 }
 
 // ============================================================
@@ -252,7 +395,21 @@ function initHistorialModule() {
         });
     });
 
-    document.getElementById('btn-export-historial')?.addEventListener('click', exportarCSV);
+    // El botón solo abre el selector de archivos; el modal se abre al leerlo
+    const csvInput = document.getElementById('csv-input');
+    document.getElementById('btn-import-historial')?.addEventListener('click', () => csvInput?.click());
+
+    csvInput?.addEventListener('change', e => {
+        const archivo = e.target.files?.[0];
+        if (archivo) leerArchivoCSV(archivo);
+    });
+
+    document.getElementById('close-import-modal')?.addEventListener('click', closeImportModal);
+    document.getElementById('cancel-import-modal')?.addEventListener('click', closeImportModal);
+    document.getElementById('import-btn-apply')?.addEventListener('click', aplicarImportacion);
+    document.getElementById('modal-import')?.addEventListener('click', e => {
+        if (e.target.id === 'modal-import') closeImportModal();
+    });
 
     document.getElementById('close-detail-modal')?.addEventListener('click', closeDetailModal);
     document.getElementById('close-detail-btn')?.addEventListener('click', closeDetailModal);

@@ -32,6 +32,109 @@ function limpiar_error_pgsql(string $msg): string {
 }
 
 // ============================================================
+// RESPUESTA JSON A PRUEBA DE SALIDA ESPURIA
+// ============================================================
+// Un warning o notice de PHP impreso antes del JSON (por ejemplo "Undefined
+// variable") hacía que JSON.parse fallara en el front y que el módulo mostrara
+// un mensaje genérico en lugar de la causa real. Todo el bloque POST corre
+// dentro de un buffer: lo que se haya impreso de más se descarta del cuerpo y
+// se devuelve en el campo debug_salida_previa para poder verlo en la consola.
+function responder_json(array $respuesta): void {
+    // Se vacían TODOS los buffers abiertos, incluido cualquiera que haya abierto
+    // el layout: si quedara uno abierto, PHP lo volcaría al terminar el script y
+    // esa salida aparecería después del JSON, rompiendo el parseo igualmente.
+    $basura = '';
+    while (ob_get_level() > 0) {
+        $basura = ((string)ob_get_clean()) . $basura;
+    }
+
+    $basura = trim(strip_tags($basura));
+    if ($basura !== '' && preg_match('/(fatal|error|warning|notice|deprecated|exception)/i', $basura)) {
+        $respuesta['debug_salida_previa'] = mb_substr($basura, 0, 800);
+    }
+
+    $json = json_encode($respuesta, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    if ($json === false) {
+        $json = json_encode([
+            'success' => false,
+            'message' => 'No se pudo serializar la respuesta: ' . json_last_error_msg(),
+            'errors'  => [],
+        ]);
+    }
+
+    echo $json;
+    exit;
+}
+
+// Evita el "Call to a member function execute() on null" cuando una consulta
+// preparada no existe en prepare_tescxp.php: lanza una excepción con nombre y
+// todo, que sí viaja al front como JSON.
+function requerir_stmt($stmt, string $nombre): PDOStatement {
+    if (!($stmt instanceof PDOStatement)) {
+        throw new Exception('La consulta preparada $' . $nombre . ' no está definida en prepare_tescxp.php (o no es un PDOStatement).');
+    }
+    return $stmt;
+}
+
+// PostgreSQL devuelve los booleanos vía PDO como 't' / 'f'.
+function es_verdadero($valor): bool {
+    return in_array($valor, ['t', 'T', 'true', 'TRUE', '1', 1, true], true);
+}
+
+// ============================================================
+// CUOTAS Y CUENTAS DE UN CRONOGRAMA, AGRUPADAS POR PROVEEDOR
+// ============================================================
+// prepare_tescxp.php ya no expone $list_cuotas_crono_con_cuentas: esa consulta
+// se partió en dos ($list_cuotas_de_cronograma, una fila por cuota, y
+// $list_ctas_prov_de_cronograma, las cuentas activas de cada proveedor) para
+// que las cuotas no se multiplicaran por cada cuenta del proveedor. El cruce
+// se hace aquí, en PHP, tal como indica el comentario de esa consulta.
+function cargar_proveedores_cronograma(int $id_cronograma, $stmt_cuotas, $stmt_ctas): array {
+    $stmt_cuotas = requerir_stmt($stmt_cuotas, 'list_cuotas_de_cronograma');
+    $stmt_ctas   = requerir_stmt($stmt_ctas,   'list_ctas_prov_de_cronograma');
+
+    $stmt_cuotas->execute([':wid_cronograma' => $id_cronograma]);
+    $cuotas = $stmt_cuotas->fetchAll(PDO::FETCH_ASSOC);
+
+    $stmt_ctas->execute([':wid_cronograma' => $id_cronograma]);
+    $cuentas = $stmt_ctas->fetchAll(PDO::FETCH_ASSOC);
+
+    // Cuentas activas indexadas por proveedor
+    $ctas_por_prov = [];
+    foreach ($cuentas as $c) {
+        $ctas_por_prov[(string)$c['id_proveedor']][] = [
+            'cta_proveedor'  => $c['cta_proveedor'],
+            'id_banco'       => $c['id_banco'],
+            'nom_banco'      => $c['nom_banco'],
+            'ind_tipocuenta' => es_verdadero($c['ind_tipocuenta']) ? 't' : 'f',
+        ];
+    }
+
+    // Una entrada por proveedor, con sus cuotas y sus cuentas
+    $proveedores = [];
+    foreach ($cuotas as $q) {
+        $idp = (string)$q['id_proveedor'];
+        if (!isset($proveedores[$idp])) {
+            $proveedores[$idp] = [
+                'id_proveedor' => $q['id_proveedor'],
+                'nom_tercero'  => $q['nom_tercero'],
+                'cuentas'      => $ctas_por_prov[$idp] ?? [],
+                'cuotas'       => [],
+                'total'        => 0.0,
+            ];
+        }
+        $proveedores[$idp]['cuotas'][] = [
+            'id_factura'  => (int)$q['id_factura'],
+            'id_cuota'    => (int)$q['id_cuota'],
+            'val_a_pagar' => (float)$q['val_a_pagar'],
+        ];
+        $proveedores[$idp]['total'] += (float)$q['val_a_pagar'];
+    }
+
+    return array_values($proveedores);
+}
+
+// ============================================================
 // CARGAR SELECTS (siempre se cargan para la vista inicial)
 // ============================================================
 $list_bancos->execute();
@@ -47,6 +150,7 @@ $cronogramas_pend = $list_cronogramas_pendientes->fetchAll(PDO::FETCH_ASSOC);
 // MANEJO DE PETICIONES POST (SIEMPRE RESPONDEN CON JSON)
 // ============================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    ob_start();
     header('Content-Type: application/json');
     $respuesta = ['success' => false, 'message' => '', 'errors' => []];
 
@@ -58,13 +162,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Cronograma no válido.');
             }
 
-            $list_cuotas_crono_con_cuentas->execute([':id_cronograma' => $id_cronograma]);
-            $filas = $list_cuotas_crono_con_cuentas->fetchAll(PDO::FETCH_ASSOC);
-
-            $respuesta['success'] = true;
-            $respuesta['filas']   = $filas;
-            echo json_encode($respuesta);
-            exit;
+            $respuesta['success']     = true;
+            $respuesta['proveedores'] = cargar_proveedores_cronograma(
+                $id_cronograma,
+                $list_cuotas_de_cronograma    ?? null,
+                $list_ctas_prov_de_cronograma ?? null
+            );
+            responder_json($respuesta);
         }
 
         // ---------- OBTENER DETALLE DE UN ARCHIVO PLANO (para el modal de detalle) ----------
@@ -74,13 +178,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Archivo plano no válido.');
             }
 
-            $list_det_archivo_plano->execute([':id_archivo_plano' => $id_archivo_plano]);
-            $detalle = $list_det_archivo_plano->fetchAll(PDO::FETCH_ASSOC);
+            $stmt_det = requerir_stmt($list_det_archivo_plano ?? null, 'list_det_archivo_plano');
+            // El placeholder de $list_det_archivo_plano es :wid_archivo_plano
+            // (antes se enviaba :id_archivo_plano y PDO tumbaba la consulta).
+            $stmt_det->execute([':wid_archivo_plano' => $id_archivo_plano]);
+            $detalle = $stmt_det->fetchAll(PDO::FETCH_ASSOC);
 
             $respuesta['success'] = true;
             $respuesta['detalle'] = $detalle;
-            echo json_encode($respuesta);
-            exit;
+            responder_json($respuesta);
         }
 
         // ---------- NUEVO ARCHIVO PLANO ----------
@@ -89,7 +195,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id_banco       = trim($_POST['sel_id_banco']        ?? '');
             $nom_archivo    = trim($_POST['txt_nom_archivo']     ?? '');
             $cta_empresa_combo = trim($_POST['sel_cta_empresa']  ?? '');
-            $cuotas_raw     = $_POST['hid_filas_archivo']        ?? '';
+            // El front solo manda la CUENTA ELEGIDA POR PROVEEDOR:
+            // "id_proveedor:cta_proveedor,...". Las cuotas ya no viajan por el
+            // formulario: se leen del cronograma en el servidor, que es la
+            // única fuente confiable y hace imposible mandar cuotas repetidas
+            // o ajenas al cronograma.
+            $ctas_raw = $_POST['hid_ctas_proveedor'] ?? '';
 
             $errores = [];
 
@@ -111,63 +222,138 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if (empty($id_empresa) || empty($cta_empresa)) {
                 $errores['err-new-cuenta-empresa'] = 'Seleccione la cuenta de la empresa de origen.';
+            } else {
+                // La cuenta de origen debe existir y ser del mismo banco al que
+                // se le entrega el archivo (regla anotada en prepare_tescxp.php,
+                // bloque de $list_ctas_empresa_banco).
+                $cta_emp_ok = false;
+                foreach ($ctas_empresa_disp as $ce) {
+                    if ((string)$ce['id_empresa'] === (string)$id_empresa
+                        && (string)$ce['cta_empresa'] === (string)$cta_empresa) {
+                        $cta_emp_ok = true;
+                        if (!empty($id_banco) && (string)$ce['id_banco'] !== (string)$id_banco) {
+                            $errores['err-new-cuenta-empresa'] = 'La cuenta de origen debe pertenecer al banco destino del archivo.';
+                        }
+                        break;
+                    }
+                }
+                if (!$cta_emp_ok) {
+                    $errores['err-new-cuenta-empresa'] = 'La cuenta de la empresa seleccionada no está registrada.';
+                }
             }
 
-            // Decodificar filas: "id_factura:id_cuota:id_proveedor:cta_proveedor:tipocuenta,..."
-            // Se deduplica por (id_factura, id_cuota) como defensa adicional: un
-            // proveedor con varias cuentas registradas puede hacer que el front
-            // envíe la misma cuota más de una vez, y eso rompería el insert de
-            // detalle (choca contra la PK compuesta del mismo archivo plano).
-            $filas = [];
-            $cuotas_vistas = [];
-            if (!empty($cuotas_raw)) {
-                foreach (explode(',', $cuotas_raw) as $fila) {
-                    $partes = explode(':', $fila);
-                    if (count($partes) === 5) {
-                        [$idf, $idc, $idprov, $ctaprov, $tipo] = $partes;
-                        $clave_cuota = $idf . ':' . $idc;
-                        if (isset($cuotas_vistas[$clave_cuota])) {
-                            continue;
+            // Cuenta elegida por el usuario para cada proveedor
+            $cta_elegida = [];
+            foreach (explode(',', (string)$ctas_raw) as $par) {
+                $partes = explode(':', $par);
+                if (count($partes) === 2) {
+                    $cta_elegida[trim($partes[0])] = trim($partes[1]);
+                }
+            }
+
+            // ---------------------------------------------------------------
+            // ARMAR EL DETALLE EN EL SERVIDOR
+            // ---------------------------------------------------------------
+            // Una fila por cuota del cronograma. La cuenta del proveedor es la
+            // que eligió el usuario, validada contra las cuentas activas del
+            // proveedor; si no eligió (o mandó una que ya no está activa) se
+            // usa la primera cuenta activa. Así la generación funciona aunque
+            // el JS falle, y el ind_tipocuenta sale de la base, no del front.
+            $filas      = [];
+            $sin_cuenta = [];
+
+            if ($id_cronograma > 0) {
+                $proveedores = cargar_proveedores_cronograma(
+                    $id_cronograma,
+                    $list_cuotas_de_cronograma    ?? null,
+                    $list_ctas_prov_de_cronograma ?? null
+                );
+
+                foreach ($proveedores as $prov) {
+                    if (empty($prov['cuentas'])) {
+                        $sin_cuenta[] = $prov['nom_tercero'];
+                        continue;
+                    }
+
+                    $idp    = (string)$prov['id_proveedor'];
+                    $cuenta = null;
+                    if (isset($cta_elegida[$idp])) {
+                        foreach ($prov['cuentas'] as $c) {
+                            if ((string)$c['cta_proveedor'] === $cta_elegida[$idp]) {
+                                $cuenta = $c;
+                                break;
+                            }
                         }
-                        $cuotas_vistas[$clave_cuota] = true;
+                    }
+                    if ($cuenta === null) {
+                        $cuenta = $prov['cuentas'][0];
+                    }
+
+                    foreach ($prov['cuotas'] as $q) {
                         $filas[] = [
-                            'id_factura'     => (int)$idf,
-                            'id_cuota'       => (int)$idc,
-                            'id_proveedor'   => $idprov,
-                            'cta_proveedor'  => $ctaprov,
-                            'ind_tipocuenta' => $tipo === 'true' ? 'true' : 'false',
+                            'id_proveedor'   => $prov['id_proveedor'],
+                            'cta_proveedor'  => $cuenta['cta_proveedor'],
+                            'ind_tipocuenta' => $cuenta['ind_tipocuenta'],
+                            'id_factura'     => $q['id_factura'],
+                            'id_cuota'       => $q['id_cuota'],
                         ];
                     }
                 }
-            }
-            if (empty($filas)) {
-                $errores['err-new-cronograma'] = 'El cronograma seleccionado no tiene cuotas con cuentas resueltas.';
+
+                if (!empty($sin_cuenta)) {
+                    $errores['err-new-cronograma'] = 'Sin cuenta bancaria activa: ' . implode(', ', $sin_cuenta)
+                        . '. Regístrela en Bancos por Proveedor antes de generar el archivo.';
+                } elseif (empty($filas)) {
+                    $errores['err-new-cronograma'] = 'El cronograma seleccionado no tiene cuotas para pagar.';
+                }
             }
 
             if (!empty($errores)) {
                 $respuesta['errors'] = $errores;
-                echo json_encode($respuesta);
-                exit;
+                responder_json($respuesta);
             }
+
+            $stmt_ins_enc = requerir_stmt($ins_enc_archivo_plano ?? null, 'ins_enc_archivo_plano');
+            $stmt_ins_det = requerir_stmt($ins_det_archivo_plano ?? null, 'ins_det_archivo_plano');
 
             $pdo->beginTransaction();
 
-            $ins_enc_archivo_plano->execute([
+            $stmt_ins_enc->execute([
                 ':wid_cronograma'    => $id_cronograma,
                 ':wid_banco'         => $id_banco,
                 ':wnom_archivo'      => $nom_archivo,
             ]);
 
-            // Recuperar el id del archivo plano recién creado
-            $id_nuevo = (int)$pdo->query("SELECT MAX(id_archivo_plano) FROM tab_enc_archivo_plano")->fetchColumn();
+            // Recuperar el id del archivo plano recién creado. Se filtra por
+            // cronograma + nombre en lugar de un MAX() global: si otro usuario
+            // genera un archivo al mismo tiempo, el MAX() suelto podía devolver
+            // el id ajeno y el detalle se colgaba del archivo equivocado.
+            $sel_id_nuevo = $pdo->prepare(
+                "SELECT MAX(id_archivo_plano)
+                   FROM tab_enc_archivo_plano
+                  WHERE id_cronograma = :id_cronograma
+                    AND nom_archivo   = :nom_archivo"
+            );
+            $sel_id_nuevo->execute([
+                ':id_cronograma' => $id_cronograma,
+                ':nom_archivo'   => $nom_archivo,
+            ]);
+            $id_nuevo = (int)$sel_id_nuevo->fetchColumn();
+
+            if ($id_nuevo <= 0) {
+                throw new Exception('No se pudo recuperar el encabezado del archivo plano recién creado.');
+            }
 
             foreach ($filas as $fila) {
-                $ins_det_archivo_plano->execute([
+                $stmt_ins_det->execute([
                     ':wid_archivo_plano' => $id_nuevo,
                     ':wid_empresa'       => $id_empresa,
                     ':wcta_empresa'      => $cta_empresa,
                     ':wid_proveedor'     => $fila['id_proveedor'],
                     ':wcta_proveedor'    => $fila['cta_proveedor'],
+                    // Faltaba: $ins_det_archivo_plano declara 8 placeholders y
+                    // ind_tipocuenta es NOT NULL en tab_det_archivo_plano.
+                    ':wind_tipocuenta'   => $fila['ind_tipocuenta'],
                     ':wid_factura'       => $fila['id_factura'],
                     ':wid_cuota'         => $fila['id_cuota'],
                 ]);
@@ -177,8 +363,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $respuesta['success'] = true;
             $respuesta['message'] = 'Archivo plano generado correctamente con ' . count($filas) . ' registro(s) de pago.';
-            echo json_encode($respuesta);
-            exit;
+            responder_json($respuesta);
         }
 
         // ---------- EDITAR ARCHIVO PLANO (banco y nombre) ----------
@@ -201,11 +386,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!empty($errores)) {
                 $respuesta['errors'] = $errores;
-                echo json_encode($respuesta);
-                exit;
+                responder_json($respuesta);
             }
 
-            $upd_enc_archivo_plano->execute([
+            requerir_stmt($upd_enc_archivo_plano ?? null, 'upd_enc_archivo_plano')->execute([
                 ':wid_archivo_plano' => $id_archivo_plano,
                 ':wid_banco'         => $id_banco,
                 ':wnom_archivo'      => $nom_archivo,
@@ -213,24 +397,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $respuesta['success'] = true;
             $respuesta['message'] = 'Archivo plano actualizado correctamente.';
-            echo json_encode($respuesta);
-            exit;
+            responder_json($respuesta);
         }
 
         // Si no se reconoce ninguna acción
         $respuesta['message'] = 'Acción no válida.';
-        echo json_encode($respuesta);
-        exit;
+        responder_json($respuesta);
 
-    } catch (Exception $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
+    } catch (Throwable $e) {
+        // Throwable y no Exception: un TypeError o un Error de PHP también debe
+        // salir como JSON, o el front recibe HTML y no puede mostrar la causa.
+        if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         $mensaje = limpiar_error_pgsql($e->getMessage());
         if (empty($mensaje)) {
             $mensaje = $e->getMessage();
         }
-        $respuesta['message'] = $mensaje;
-        echo json_encode($respuesta);
-        exit;
+        $respuesta['message']      = $mensaje;
+        $respuesta['debug_origen'] = basename($e->getFile()) . ':' . $e->getLine();
+        responder_json($respuesta);
     }
 }
 
@@ -264,7 +450,7 @@ ob_start();
     <div class="stats-grid">
         <?php
         $total      = count($archivos);
-        $generados  = count(array_filter($archivos, fn($a) => $a['ind_generado'] === 't' || $a['ind_generado'] === true));
+        $generados  = count(array_filter($archivos, fn($a) => es_verdadero($a['ind_generado'])));
         $pendientes = $total - $generados;
         ?>
         <div class="stat-card">
@@ -333,7 +519,7 @@ ob_start();
                 </tr>
             <?php else: ?>
                 <?php foreach ($archivos as $a):
-                    $generado    = ($a['ind_generado'] === 't' || $a['ind_generado'] === true);
+                    $generado    = es_verdadero($a['ind_generado']);
                     $badge       = $generado
                         ? '<span class="badge badge-active">Generado</span>'
                         : '<span class="badge badge-inactive" style="background:#fffbeb;color:#f59e0b">Por generar</span>';
@@ -379,7 +565,7 @@ ob_start();
         <div class="modal-body">
             <form id="new-archivo-form" novalidate>
                 <input type="hidden" name="btn_nuevo" value="1">
-                <input type="hidden" name="hid_filas_archivo" id="hid-filas-archivo" value="">
+                <input type="hidden" name="hid_ctas_proveedor" id="hid-ctas-proveedor" value="">
 
                 <div class="form-field">
                     <label class="form-label">Cronograma Pendiente <span class="required">*</span></label>
@@ -418,9 +604,10 @@ ob_start();
                         <option value="">Seleccione...</option>
                         <?php foreach ($ctas_empresa_disp as $ce): ?>
                             <?php
-                                $tipoTxt = ($ce['ind_tipocuenta'] === 't' || $ce['ind_tipocuenta'] === true) ? 'Corriente' : 'Ahorros';
+                                $tipoTxt = es_verdadero($ce['ind_tipocuenta']) ? 'Corriente' : 'Ahorros';
                             ?>
-                            <option value="<?= htmlspecialchars($ce['id_empresa']) ?>:<?= htmlspecialchars($ce['cta_empresa']) ?>">
+                            <option value="<?= htmlspecialchars($ce['id_empresa']) ?>:<?= htmlspecialchars($ce['cta_empresa']) ?>"
+                                    data-id-banco="<?= htmlspecialchars($ce['id_banco']) ?>">
                                 <?= htmlspecialchars($ce['nom_banco']) ?> — <?= htmlspecialchars($ce['cta_empresa']) ?> (<?= $tipoTxt ?>)
                             </option>
                         <?php endforeach; ?>
