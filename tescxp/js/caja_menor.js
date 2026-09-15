@@ -193,18 +193,56 @@ function loadMovimientos(idCajaMenor) {
         });
 }
 
-async function onCambiarEstadoMovimiento(e) {
+// ============================================================
+// 4a. MODAL DE CONFIRMACIÓN DE ACCIÓN (estilo módulo Compras)
+// ============================================================
+let _confirmAccionOnAceptar  = null;
+let _confirmAccionOnCancelar = null;
+
+function abrirConfirmAccion(titulo, mensaje, opciones = {}) {
+    const { textoOk = 'Confirmar', onAceptar = null, onCancelar = null } = opciones;
+    setText('confirm-accion-title', titulo);
+    setText('confirm-accion-body', mensaje);
+    setText('confirm-accion-ok-btn', textoOk);
+    _confirmAccionOnAceptar  = onAceptar;
+    _confirmAccionOnCancelar = onCancelar;
+    show('modal-confirm-accion');
+}
+
+function _resolverConfirmAccion(aceptado) {
+    const onAceptar  = _confirmAccionOnAceptar;
+    const onCancelar = _confirmAccionOnCancelar;
+    hide('modal-confirm-accion');
+    _confirmAccionOnAceptar  = null;
+    _confirmAccionOnCancelar = null;
+    if (aceptado && typeof onAceptar === 'function') onAceptar();
+    if (!aceptado && typeof onCancelar === 'function') onCancelar();
+}
+
+function onCambiarEstadoMovimiento(e) {
     const sel         = e.target;
     const idCaja      = sel.dataset.idCaja;
     const idMov       = sel.dataset.idMov;
     const nuevoEstado = sel.value;
     const estadoTexto = ESTADOS_MOVIMIENTO[nuevoEstado];
 
-    if (nuevoEstado === '3' && !confirm(`¿Confirma que este movimiento fue reembolsado a la caja?\nEl monto disponible se incrementará nuevamente.`)) {
-        loadMovimientos(idCaja);
+    if (nuevoEstado === '3') {
+        abrirConfirmAccion(
+            'Confirmar reembolso',
+            'Este movimiento se marcará como reembolsado a la caja. El monto disponible se incrementará nuevamente.',
+            {
+                textoOk: 'Sí, reembolsar',
+                onAceptar:  () => ejecutarCambioEstadoMovimiento(idCaja, idMov, nuevoEstado, estadoTexto),
+                onCancelar: () => loadMovimientos(idCaja)
+            }
+        );
         return;
     }
 
+    ejecutarCambioEstadoMovimiento(idCaja, idMov, nuevoEstado, estadoTexto);
+}
+
+async function ejecutarCambioEstadoMovimiento(idCaja, idMov, nuevoEstado, estadoTexto) {
     const formData = new FormData();
     formData.append('btn_cambiar_estado', '1');
     formData.append('hid_estado_id_caja', idCaja);
@@ -232,13 +270,18 @@ async function onCambiarEstadoMovimiento(e) {
 // ============================================================
 // 4b. CERRAR CAJA MENOR
 // ============================================================
-async function cerrarCajaMenor(caja) {
-    const confirmado = confirm(
-        `¿Confirma que desea cerrar la caja "${caja.nom_caja_menor}"?\n\n` +
-        `La caja pasará a estado Cerrada y esta acción no se puede deshacer desde aquí.`
+function cerrarCajaMenor(caja) {
+    abrirConfirmAccion(
+        `Cerrar "${caja.nom_caja_menor}"`,
+        'La caja pasará a estado Cerrada y esta acción no se puede deshacer desde aquí.',
+        {
+            textoOk: 'Sí, cerrar caja',
+            onAceptar: () => ejecutarCerrarCajaMenor(caja)
+        }
     );
-    if (!confirmado) return;
+}
 
+async function ejecutarCerrarCajaMenor(caja) {
     const formData = new FormData();
     formData.append('btn_cerrar_caja', '1');
     formData.append('hid_id_caja_menor', caja.id_caja_menor);
@@ -331,6 +374,13 @@ function initCajaModule() {
     });
     document.getElementById('modal-detail')?.addEventListener('click', e => {
         if (e.target.id === 'modal-detail') closeDetailModal();
+    });
+
+    // ---------- MODAL: CONFIRMAR ACCIÓN ----------
+    document.getElementById('confirm-accion-ok-btn')?.addEventListener('click', () => _resolverConfirmAccion(true));
+    document.getElementById('confirm-accion-cancel-btn')?.addEventListener('click', () => _resolverConfirmAccion(false));
+    document.getElementById('modal-confirm-accion')?.addEventListener('click', e => {
+        if (e.target.id === 'modal-confirm-accion') _resolverConfirmAccion(false);
     });
 
     // ---------- SUBMIT: NUEVA CAJA ----------

@@ -115,10 +115,34 @@ function clearFilters() {
 }
 
 // ============================================================
-// 5. ELIMINAR FESTIVO (función global)
+// 5. MODAL DE CONFIRMACIÓN DE ELIMINACIÓN (estilo módulo Compras)
+// ============================================================
+let _confirmDeleteAction = null;
+
+function abrirConfirmEliminar(titulo, mensaje, accion) {
+    setText('confirm-eliminar-title', titulo);
+    setText('confirm-eliminar-body', mensaje);
+    _confirmDeleteAction = accion;
+    show('modal-confirm-eliminar');
+}
+
+function cerrarConfirmEliminar() {
+    hide('modal-confirm-eliminar');
+    _confirmDeleteAction = null;
+}
+
+// ============================================================
+// 5.1 ELIMINAR FESTIVO (función global)
 // ============================================================
 window.eliminarFestivo = function(id, nombre) {
-    if (!confirm(`¿Desea eliminar el festivo "${nombre}"?\nEsta acción es reversible desde la base de datos.`)) return;
+    abrirConfirmEliminar(
+        `Eliminar "${nombre}"`,
+        `¿Desea eliminar el festivo "${nombre}"? Esta acción es reversible desde la base de datos.`,
+        () => ejecutarEliminarFestivo(id)
+    );
+};
+
+function ejecutarEliminarFestivo(id) {
     const formData = new FormData();
     formData.append('btn_eliminar', '1');
     formData.append('hid_del_id', id);
@@ -138,7 +162,7 @@ window.eliminarFestivo = function(id, nombre) {
         }
     })
     .catch(() => showToast('Error de conexión', 'error'));
-};
+}
 
 // Exponer para los onclick inline del HTML generado por PHP
 window.openEditModal = openEditModal;
@@ -167,6 +191,17 @@ function initFestivoModule() {
     });
     document.getElementById('modal-edit-festivo')?.addEventListener('click', e => {
         if (e.target.id === 'modal-edit-festivo') closeEditModal();
+    });
+
+    // ---------- MODAL: CONFIRMAR ELIMINACIÓN ----------
+    document.getElementById('confirm-eliminar-cancel-btn')?.addEventListener('click', cerrarConfirmEliminar);
+    document.getElementById('confirm-eliminar-ok-btn')?.addEventListener('click', () => {
+        const accion = _confirmDeleteAction;
+        cerrarConfirmEliminar();
+        if (typeof accion === 'function') accion();
+    });
+    document.getElementById('modal-confirm-eliminar')?.addEventListener('click', e => {
+        if (e.target.id === 'modal-confirm-eliminar') cerrarConfirmEliminar();
     });
 
     // ---------- SUBMIT: NUEVO FESTIVO ----------

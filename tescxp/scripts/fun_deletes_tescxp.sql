@@ -322,3 +322,47 @@ EXCEPTION
 END;
 $BODY$
 LANGUAGE PLPGSQL;
+
+--------------------------------------------------------------------------------------------------------------------------------------
+-- FUNCIÓN DE DELETE LÓGICO DE BANCOS
+-- NOTA: Esta función cambia ind_borrado de FALSE a TRUE (borrado lógico). No se permite
+--       borrar un banco que esté siendo usado en cuentas activas de la empresa o de
+--       proveedores.
+--------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fun_delete_bancos (wid_banco     tab_bancos.id_banco%TYPE) RETURNS BOOLEAN AS
+$BODY$
+BEGIN
+
+-- VALIDAR QUE EL ID DEL BANCO NO SEA NULO
+    IF wid_banco IS NULL THEN
+        RAISE EXCEPTION 'El ID del banco no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE EL BANCO EXISTA Y NO ESTÉ YA BORRADO
+    IF NOT EXISTS (SELECT 1 FROM tab_bancos WHERE id_banco = wid_banco AND ind_borrado = FALSE) THEN
+        RAISE EXCEPTION 'El banco % no existe o ya se encuentra borrado.', wid_banco;
+    END IF;
+
+-- VALIDAR QUE EL BANCO NO ESTÉ SIENDO USADO EN CUENTAS ACTIVAS DE LA EMPRESA
+    IF EXISTS (SELECT 1 FROM tab_ctas_empresa WHERE id_banco = wid_banco AND ind_borrado = FALSE) THEN
+        RAISE EXCEPTION 'El banco % está asociado a cuentas activas de la empresa y no puede ser borrado.', wid_banco;
+    END IF;
+
+-- VALIDAR QUE EL BANCO NO ESTÉ SIENDO USADO EN CUENTAS ACTIVAS DE PROVEEDORES
+    IF EXISTS (SELECT 1 FROM tab_bancoxprov WHERE id_banco = wid_banco AND ind_borrado = FALSE) THEN
+        RAISE EXCEPTION 'El banco % está asociado a cuentas activas de proveedores y no puede ser borrado.', wid_banco;
+    END IF;
+
+-- SI TODO VA BIEN, SE BORRA LÓGICAMENTE EN tab_bancos
+    UPDATE tab_bancos
+    SET    ind_borrado = TRUE
+    WHERE  id_banco    = wid_banco;
+
+    RETURN TRUE;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'ERROR: %', public.fun_mensaje_error(SQLSTATE, SQLERRM);
+END;
+$BODY$
+LANGUAGE PLPGSQL;

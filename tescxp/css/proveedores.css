@@ -6,7 +6,7 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-#mod-proveedores {
+:root {
     --dash-bg:           #ffffff;
     --dash-card:         #ffffff;
     --dash-border:       #e9edf2;
@@ -16,8 +16,11 @@
     --dash-text-body:    #1e293b;
     --dash-text-sub:     #475569;
     --dash-text-muted:   #94a3b8;
-    --dash-blue:         #3b82f6;
-    --dash-blue-light:   #eff6ff;
+    /* Color de marca: toma la paleta global de Configuración (tab_menu_palettes).
+       El valor después de la coma es el respaldo si la variable global no está definida. */
+    --dash-blue:         var(--color-primary, #3b82f6);
+    --dash-blue-light:   color-mix(in srgb, var(--color-primary, #3b82f6) 12%, white);
+    --dash-blue-dark:    color-mix(in srgb, var(--color-primary, #3b82f6) 80%, black);
     --dash-green-dark:   #059669;
     --dash-green-light:  #ecfdf5;
     --dash-red:          #ef4444;
@@ -94,9 +97,9 @@
 }
 
 #mod-proveedores #btn-add-supplier:hover {
-    background: #2563eb !important;
+    background: var(--dash-blue-dark) !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 4px 8px rgba(59,130,246,0.2) !important;
+    box-shadow: 0 4px 8px color-mix(in srgb, var(--dash-blue) 20%, transparent) !important;
 }
 
 /* ---- STATS ---- */
@@ -194,7 +197,7 @@
 
 #mod-proveedores .search-input:focus {
     border-color: var(--dash-blue);
-    box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--dash-blue) 10%, transparent);
 }
 
 #mod-proveedores .filter-toggle-group { display: flex; gap: 6px; }
@@ -341,15 +344,15 @@
 }
 
 #mod-proveedores .btn-primary:hover,
-.modal-footer .btn-primary:hover { background: #2563eb; }
+.modal-footer .btn-primary:hover { background: var(--dash-blue-dark); }
 
 #mod-proveedores .btn-success,
 .modal-footer .btn-success {
-    background: #2d8653; color: white;
+    background: var(--color-primary, #2d8653); color: white;
 }
 
 #mod-proveedores .btn-success:hover,
-.modal-footer .btn-success:hover { background: #1e5c3a; }
+.modal-footer .btn-success:hover { background: color-mix(in srgb, var(--color-primary, #2d8653) 68%, black); }
 
 #mod-proveedores .btn-secondary,
 .modal-footer .btn-secondary {
@@ -387,7 +390,7 @@
     background: rgba(0,0,0,0.5);
     backdrop-filter: blur(3px);
     display: flex; align-items: center; justify-content: center;
-    z-index: 1000; padding: 1rem;
+    z-index: 1050; padding: 1rem;
 }
 
 .modal-overlay.hidden { display: none; }
@@ -408,10 +411,21 @@
     padding: 18px 24px;
     display: flex; justify-content: space-between; align-items: center;
     flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
 }
 
-.modal-header.green { background: #2d8653; color: white; }
-.modal-header.blue  { background: #3b82f6; color: white; }
+.modal-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.16), transparent 55%);
+    pointer-events: none;
+}
+
+.modal-header.green { background: var(--color-primary, #2d8653); color: white; }
+.modal-header.blue  { background: var(--dash-blue); color: white; }
 
 .modal-header h2 {
     font-size: 18px; font-weight: 700; margin: 0;
@@ -459,14 +473,14 @@
 .modal-tab:hover { color: #475569; background: #f1f5f9; }
 
 .modal-tab.active {
-    color: #2d8653;
-    border-bottom-color: #2d8653;
+    color: var(--color-primary, #2d8653);
+    border-bottom-color: var(--color-primary, #2d8653);
     background: white;
 }
 
 .modal-header.blue ~ .modal-tabs .modal-tab.active {
-    color: #3b82f6;
-    border-bottom-color: #3b82f6;
+    color: var(--dash-blue);
+    border-bottom-color: var(--dash-blue);
 }
 
 /* ---- CONTENIDO DE PESTAÑAS ---- */
@@ -487,6 +501,40 @@
     border-top: 1px solid #e9edf2;
     display: flex; justify-content: flex-end;
     gap: 12px; background: #ffffff; flex-shrink: 0;
+}
+
+/* ---- BOTÓN PRIMARIO (Siguiente, Guardar, Actualizar, Editar) ----
+   Este módulo no tenía su propia regla .btn-primary: los botones con
+   class="btn btn-primary" caían en el azul por defecto de Bootstrap
+   (#0d6efd), completamente desconectado de la paleta. Se define aquí
+   siguiendo el mismo patrón que ordencompra.css / solicitudes_compra.css. */
+.btn-primary {
+    background: var(--dash-blue);
+    color: white;
+    border: none;
+    box-shadow: var(--dash-shadow-sm);
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+}
+.btn-primary:disabled { cursor: not-allowed; opacity: 0.75; }
+.btn-primary:hover {
+    background: var(--dash-blue-dark);
+    transform: translateY(-1px);
+}
+.btn-primary:disabled {
+    background: var(--dash-blue);
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Dentro de un modal "verde" (crear), el botón principal debe coordinar con el
+   acento (header, pestaña activa y foco de campos ya usan ese mismo color),
+   en vez del azul/primario que corresponde a los modales "editar". */
+.modal-header.green ~ .modal-footer .btn-primary {
+    background: var(--color-primary, #2d8653);
+}
+.modal-header.green ~ .modal-footer .btn-primary:hover {
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 80%, black);
 }
 
 /* ---- FORMULARIOS ---- */
@@ -511,7 +559,7 @@
     height: 44px !important;
     padding: 11px 16px !important;
     font-size: 13px !important;
-    border: 1.5px solid #b2d8c4 !important;
+    border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white) !important;
     border-radius: 50px !important;
     background-size: 12px !important;
     appearance: none !important;
@@ -524,14 +572,14 @@
 }
 
 .modal-body select.form-select:hover {
-    background-color: #edf7f2 !important;
-    border-color: #7ecba4 !important;
+    background-color: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white) !important;
+    border-color: color-mix(in srgb, var(--color-primary, #2d8653) 52%, white) !important;
 }
 
 .modal-body select.form-select:focus {
-    background-color: #edf7f2 !important;
-    border-color: #2d8653 !important;
-    box-shadow: 0 0 0 3px rgba(45, 134, 83, 0.12) !important;
+    background-color: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white) !important;
+    border-color: var(--color-primary, #2d8653) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #2d8653) 12%, transparent) !important;
     outline: none !important;
 }
 
@@ -554,7 +602,7 @@
     width: 100%;
     height: 44px !important;
     padding: 11px 16px !important;
-    border: 1.5px solid #b2d8c4 !important;
+    border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white) !important;
     border-radius: 50px !important;
     background: #ffffff !important;
     font-family: 'DM Sans', system-ui, sans-serif !important;
@@ -574,15 +622,15 @@
 }
 
 .cs-trigger:hover {
-    background: #edf7f2 !important;
-    border-color: #7ecba4 !important;
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white) !important;
+    border-color: color-mix(in srgb, var(--color-primary, #2d8653) 52%, white) !important;
 }
 
 .cs-trigger:focus,
 .cs-trigger.open {
-    background: #edf7f2 !important;
-    border-color: #2d8653 !important;
-    box-shadow: 0 0 0 3px rgba(45, 134, 83, 0.12) !important;
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white) !important;
+    border-color: var(--color-primary, #2d8653) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #2d8653) 12%, transparent) !important;
 }
 
 .cs-trigger-text {
@@ -619,7 +667,7 @@
     left: 0 !important;
     right: 0 !important;
     background: #ffffff !important;
-    border: 1.5px solid #b2d8c4 !important;
+    border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white) !important;
     border-radius: 16px !important;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12) !important;
     z-index: 1050 !important;
@@ -682,7 +730,7 @@
     transition: background 0.15s;
 }
 
-.cs-option:hover { background: #edf7f2; }
+.cs-option:hover { background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white); }
 
 .cs-option.selected {
     background: #d1fae5;
@@ -712,7 +760,7 @@
     border-radius: 20px;
     font-size: 12px;
     font-weight: 700;
-    color: #2d8653;
+    color: var(--color-primary, #2d8653);
 }
 
 /* ============================================
@@ -725,21 +773,21 @@
     align-items: stretch;
     border-radius: 50px;
     overflow: visible;
-    border: 1.5px solid #b2d8c4;
+    border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white);
     background: #ffffff;
     transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
     position: relative;
 }
 
 .input-prefix-group:hover {
-    background: #edf7f2;
-    border-color: #7ecba4;
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: color-mix(in srgb, var(--color-primary, #2d8653) 52%, white);
 }
 
 .input-prefix-group:focus-within {
-    background: #edf7f2;
-    border-color: #2d8653;
-    box-shadow: 0 0 0 3px rgba(45, 134, 83, 0.12);
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: var(--color-primary, #2d8653);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #2d8653) 12%, transparent);
 }
 
 /* Elementos dentro del grupo sin borde individual */
@@ -814,7 +862,7 @@
     width: 100%;
     padding: 11px 16px;
     height: 44px;
-    border: 1.5px solid #b2d8c4;
+    border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white);
     border-radius: 50px;
     font-family: 'DM Sans', system-ui, sans-serif;
     font-size: 13px;
@@ -826,14 +874,14 @@
 }
 
 .form-input:hover {
-    background: #edf7f2;
-    border-color: #7ecba4;
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: color-mix(in srgb, var(--color-primary, #2d8653) 52%, white);
 }
 
 .form-input:focus {
-    background: #edf7f2;
-    border-color: #2d8653;
-    box-shadow: 0 0 0 3px rgba(45, 134, 83, 0.12);
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: var(--color-primary, #2d8653);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #2d8653) 12%, transparent);
 }
 
 .form-input::placeholder { color: #b0b8c9; }
@@ -906,30 +954,30 @@ textarea.form-input { border-radius: 16px; resize: vertical; height: auto; }
     color: #475569; font-family: 'DM Sans', system-ui, sans-serif;
 }
 
-.eval-item input[type="range"] { width: 100%; accent-color: #2d8653; }
+.eval-item input[type="range"] { width: 100%; accent-color: var(--color-primary, #2d8653); }
 
 .eval-value {
     display: block; text-align: center;
     font-size: 13px; font-weight: 700;
-    color: #2d8653; margin-top: 6px;
+    color: var(--color-primary, #2d8653); margin-top: 6px;
     font-family: 'DM Sans', system-ui, sans-serif;
 }
 
 .eval-result {
-    background: #edf7f2; border: 1.5px solid #b2d8c4;
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white); border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white);
     border-radius: 16px; padding: 16px;
     text-align: center; margin-top: 16px;
 }
 
 .eval-result span {
     font-size: 11px; font-weight: 700;
-    text-transform: uppercase; color: #2d8653;
+    text-transform: uppercase; color: var(--color-primary, #2d8653);
     letter-spacing: 0.5px; font-family: 'DM Sans', system-ui, sans-serif;
 }
 
 .eval-result strong {
     font-size: 32px; font-weight: 800;
-    color: #1e5c3a; display: block;
+    color: color-mix(in srgb, var(--color-primary, #2d8653) 68%, black); display: block;
     font-family: 'DM Sans', system-ui, sans-serif;
 }
 
@@ -937,7 +985,7 @@ textarea.form-input { border-radius: 16px; resize: vertical; height: auto; }
 .geo-toggle {
     display: flex; align-items: center; gap: 12px;
     margin-bottom: 8px; padding: 12px 16px;
-    background: #edf7f2; border: 1.5px solid #b2d8c4;
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white); border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white);
     border-radius: 16px;
 }
 
@@ -959,8 +1007,8 @@ textarea.form-input { border-radius: 16px; resize: vertical; height: auto; }
 
 .btn-geocode {
     width: 100%; padding: 10px;
-    background: #edf7f2; border: 1.5px solid #b2d8c4;
-    border-radius: 30px; color: #2d8653;
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white); border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white);
+    border-radius: 30px; color: var(--color-primary, #2d8653);
     font-family: 'DM Sans', system-ui, sans-serif;
     font-size: 13px; font-weight: 600;
     cursor: pointer; transition: all 0.2s;
@@ -983,7 +1031,7 @@ textarea.form-input { border-radius: 16px; resize: vertical; height: auto; }
 }
 
 .toggle-switch.on {
-    background: #2d8653 !important; border-color: #236b42 !important;
+    background: var(--color-primary, #2d8653) !important; border-color: color-mix(in srgb, var(--color-primary, #2d8653) 80%, black) !important;
 }
 
 .toggle-thumb {

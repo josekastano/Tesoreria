@@ -130,6 +130,27 @@ function buscarOrden(idOC) {
     return (ordenesData || []).find(o => String(o.id_ordencompra) === String(idOC));
 }
 
+// Nombre del proveedor de una orden para mostrar en el selector. La columna
+// que devuelve la consulta se llama "proveedor_nombre" (no "nom_tercero").
+// Si por cualquier motivo no viene, se muestra al menos el NIT del
+// proveedor en vez de dejarlo en blanco (o mostrar "undefined").
+function nombreProveedorOC(orden) {
+    const nombre = (orden?.proveedor_nombre ?? '').trim();
+    if (nombre) return nombre;
+    return orden?.id_proveedor ? `Proveedor NIT ${orden.id_proveedor}` : 'Proveedor desconocido';
+}
+
+// Valor a mostrar junto a la orden: si ya tiene algo facturado (orden
+// parcialmente usada), se muestra el saldo disponible en vez del total,
+// para que quede claro cuánto queda realmente por facturar.
+function valorMostrarOC(orden) {
+    const facturado = Number(orden?.val_facturado ?? 0);
+    if (facturado > 0 && orden?.val_saldo_disponible != null) {
+        return `${formatCurrency(orden.val_saldo_disponible)} disponible`;
+    }
+    return formatCurrency(orden?.val_total);
+}
+
 // ---- Resumen en el formulario ----
 function renderOCSelected() {
     const idOC = val('new-id-ordencompra');
@@ -144,8 +165,8 @@ function renderOCSelected() {
     }
 
     caja?.classList.add('sel');
-    setText('oc-selected-num', `OC #${orden.id_ordencompra} — ${orden.nom_tercero}`);
-    setText('oc-selected-meta', `${formatDate(orden.fec_emision)} · ${orden.nom_ciudad ?? ''} · ${esCredito(orden) ? 'Crédito' : 'Contado'} · ${formatCurrency(orden.val_total)}`);
+    setText('oc-selected-num', `OC #${orden.id_ordencompra} — ${nombreProveedorOC(orden)}`);
+    setText('oc-selected-meta', `${formatDate(orden.fec_emision)} · ${orden.ciudad_nombre ?? ''} · ${esCredito(orden) ? 'Crédito' : 'Contado'} · ${valorMostrarOC(orden)}`);
 }
 
 function limpiarSeleccionOC() {
@@ -165,7 +186,7 @@ function renderOrdenes() {
     const hasta  = val('oc-fec-hasta');
 
     const visibles = (ordenesData || []).filter(o => {
-        const texto = `${o.id_ordencompra} ${o.nom_tercero}`.toLowerCase();
+        const texto = `${o.id_ordencompra} ${nombreProveedorOC(o)}`.toLowerCase();
         if (query && !texto.includes(query)) return false;
         if (prov && o.id_proveedor !== prov) return false;
         if (desde && o.fec_emision < desde) return false;
@@ -177,9 +198,15 @@ function renderOrdenes() {
 
     setText('oc-count', `${visibles.length} ${visibles.length === 1 ? 'orden' : 'órdenes'}`);
 
+    // El proveedor bloqueado (por el proveedor ya elegido en el formulario)
+    // no cuenta como "filtro activo" para mostrar el botón Limpiar, porque
+    // Limpiar no puede (ni debe) quitarlo.
+    const filtroProvEl  = document.getElementById('oc-filtro-proveedor');
+    const provOpcional  = (filtroProvEl && !filtroProvEl.disabled) ? prov : '';
+
     const clearBtn = document.getElementById('btn-oc-clear');
     if (clearBtn) {
-        clearBtn.style.display = (query || prov || desde || hasta || ocMetodo !== 'all') ? '' : 'none';
+        clearBtn.style.display = (query || provOpcional || desde || hasta || ocMetodo !== 'all') ? '' : 'none';
     }
 
     if (visibles.length === 0) {
@@ -190,10 +217,10 @@ function renderOrdenes() {
                 <input type="radio" name="rad_oc_sel" value="${escapeHtml(o.id_ordencompra)}"
                        ${String(o.id_ordencompra) === ocPendiente ? 'checked' : ''}>
                 <span class="oc-row-info">
-                    <span class="oc-row-num">OC #${escapeHtml(o.id_ordencompra)} — ${escapeHtml(o.nom_tercero)}</span>
-                    <span class="oc-row-meta">${formatDate(o.fec_emision)} · ${escapeHtml(o.nom_ciudad ?? '')} · ${esCredito(o) ? 'Crédito' : 'Contado'}</span>
+                    <span class="oc-row-num">OC #${escapeHtml(o.id_ordencompra)} — ${escapeHtml(nombreProveedorOC(o))}</span>
+                    <span class="oc-row-meta">${formatDate(o.fec_emision)} · ${escapeHtml(o.ciudad_nombre ?? '')} · ${esCredito(o) ? 'Crédito' : 'Contado'}</span>
                 </span>
-                <span class="oc-row-valor">${formatCurrency(o.val_total)}</span>
+                <span class="oc-row-valor">${valorMostrarOC(o)}</span>
             </label>
         `).join('');
 
@@ -214,7 +241,12 @@ function renderOrdenes() {
 
 function clearOCFilters() {
     setVal('oc-search', '');
-    setVal('oc-filtro-proveedor', '');
+    // El filtro de proveedor solo se limpia si no está bloqueado por el
+    // proveedor ya elegido en el formulario principal.
+    const filtroProv = document.getElementById('oc-filtro-proveedor');
+    if (filtroProv && !filtroProv.disabled) {
+        setVal('oc-filtro-proveedor', '');
+    }
     setVal('oc-fec-desde', '');
     setVal('oc-fec-hasta', '');
     ocMetodo = 'all';
@@ -227,7 +259,13 @@ function clearOCFilters() {
 function openOCModal() {
     ocPendiente = val('new-id-ordencompra');
 
-    // El filtro arranca en el proveedor ya elegido para la factura
+    // El filtro arranca en el proveedor ya elegido para la factura. Si ya hay
+    // un proveedor elegido, el filtro se BLOQUEA para que solo se puedan ver
+    // y seleccionar órdenes de ese proveedor (antes se podía cambiar/borrar
+    // el filtro y elegir una orden de otro proveedor, que luego pisaba
+    // silenciosamente el proveedor del formulario). Si aún no hay proveedor
+    // elegido, el filtro queda libre y la orden que se elija define el
+    // proveedor de la factura, como ya funcionaba.
     const prov = val('new-id-proveedor');
     setVal('oc-search', '');
     setVal('oc-filtro-proveedor', prov || '');
@@ -237,8 +275,28 @@ function openOCModal() {
     document.querySelectorAll('.oc-toggle').forEach(b => b.classList.remove('active'));
     document.querySelector('.oc-toggle[data-met="all"]')?.classList.add('active');
 
+    const filtroProv = document.getElementById('oc-filtro-proveedor');
+    if (filtroProv) filtroProv.disabled = !!prov;
+    setOCProvLockHint(prov);
+
     renderOrdenes();
     show('modal-oc');
+}
+
+// Muestra un aviso cuando el filtro de proveedor está bloqueado por el
+// proveedor ya elegido en el formulario principal.
+function setOCProvLockHint(prov) {
+    const hint = document.getElementById('oc-prov-lock-hint');
+    if (!hint) return;
+    if (prov) {
+        const selProv = document.getElementById('new-id-proveedor');
+        const nombre  = selProv?.selectedOptions?.[0]?.textContent?.trim() ?? '';
+        hint.textContent = `Mostrando solo órdenes de ${nombre}. Para ver otras, cambie el proveedor de la factura.`;
+        hint.style.display = '';
+    } else {
+        hint.textContent = '';
+        hint.style.display = 'none';
+    }
 }
 
 function closeOCModal() {

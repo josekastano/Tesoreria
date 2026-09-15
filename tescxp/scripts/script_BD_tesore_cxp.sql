@@ -209,9 +209,9 @@ CREATE TABLE tab_det_cronopagos
 
     PRIMARY KEY(id_cronograma,id_factura,id_cuota),
     FOREIGN KEY(id_cronograma)              REFERENCES tab_enc_cronopagos(id_cronograma),
-    FOREIGN KEY(id_factura,id_cuota)        REFERENCES tab_cuotasxfactura(id_factura,id_cuota)
+    FOREIGN KEY(id_factura,id_cuota)        REFERENCES tab_cuotasxfactura(id_factura,id_cuota),
 
-    CONSTRAINT uq_cuota_programada          UNIQUE (id_factura,id_cuota),                                                        -- Una cuota solo puede estar programada en UN cronograma a la vez (impide el doble pago)
+    CONSTRAINT uq_cuota_programada          UNIQUE (id_factura,id_cuota)                                                        -- Una cuota solo puede estar programada en UN cronograma a la vez (impide el doble pago)
 );
 
 ------------------------------------------

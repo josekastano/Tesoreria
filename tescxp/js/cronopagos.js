@@ -427,11 +427,34 @@ function closeDetailModal() {
 window.openDetailModal = openDetailModal;
 
 // ============================================================
-// 5.1 ELIMINAR LÍNEA DE DETALLE DEL CRONOGRAMA
+// 5.1 MODAL DE CONFIRMACIÓN DE ELIMINACIÓN (estilo módulo Compras)
+// ============================================================
+let _confirmDeleteAction = null;
+
+function abrirConfirmEliminar(titulo, mensaje, accion) {
+    setText('confirm-eliminar-title', titulo);
+    setText('confirm-eliminar-body', mensaje);
+    _confirmDeleteAction = accion;
+    show('modal-confirm-eliminar');
+}
+
+function cerrarConfirmEliminar() {
+    hide('modal-confirm-eliminar');
+    _confirmDeleteAction = null;
+}
+
+// ============================================================
+// 5.2 ELIMINAR LÍNEA DE DETALLE DEL CRONOGRAMA
 // ============================================================
 function eliminarDetalleCronograma(idCronograma, idFactura, idCuota) {
-    if (!confirm(`¿Eliminar la Cuota ${idCuota} de la Factura #${idFactura} del cronograma?\nEsta acción no se puede deshacer.`)) return;
+    abrirConfirmEliminar(
+        `Eliminar Cuota ${idCuota}`,
+        `¿Eliminar la Cuota ${idCuota} de la Factura #${idFactura} del cronograma? Esta acción no se puede deshacer.`,
+        () => ejecutarEliminarDetalleCronograma(idCronograma, idFactura, idCuota)
+    );
+}
 
+function ejecutarEliminarDetalleCronograma(idCronograma, idFactura, idCuota) {
     const formData = new FormData();
     formData.append('btn_eliminar_detalle', '1');
     formData.append('hid_det_id_cronograma', idCronograma);
@@ -463,7 +486,14 @@ function eliminarDetalleCronograma(idCronograma, idFactura, idCuota) {
 // 6. ELIMINAR CRONOGRAMA (función global)
 // ============================================================
 window.eliminarCronograma = function(id, nombre) {
-    if (!confirm(`¿Desea eliminar el cronograma "${nombre}"?\nEsta acción es reversible desde la base de datos.`)) return;
+    abrirConfirmEliminar(
+        `Eliminar "${nombre}"`,
+        `¿Desea eliminar el cronograma "${nombre}"? Esta acción es reversible desde la base de datos.`,
+        () => ejecutarEliminarCronograma(id)
+    );
+};
+
+function ejecutarEliminarCronograma(id) {
     const formData = new FormData();
     formData.append('btn_eliminar', '1');
     formData.append('hid_del_id', id);
@@ -480,7 +510,7 @@ window.eliminarCronograma = function(id, nombre) {
             }
         })
         .catch(() => showToast('Error de conexión', 'error'));
-};
+}
 
 // ============================================================
 // 7. FILTROS
@@ -567,6 +597,17 @@ function initCronoModule() {
     });
     document.getElementById('modal-detail')?.addEventListener('click', e => {
         if (e.target.id === 'modal-detail') closeDetailModal();
+    });
+
+    // ---------- MODAL: CONFIRMAR ELIMINACIÓN ----------
+    document.getElementById('confirm-eliminar-cancel-btn')?.addEventListener('click', cerrarConfirmEliminar);
+    document.getElementById('confirm-eliminar-ok-btn')?.addEventListener('click', () => {
+        const accion = _confirmDeleteAction;
+        cerrarConfirmEliminar();
+        if (typeof accion === 'function') accion();
+    });
+    document.getElementById('modal-confirm-eliminar')?.addEventListener('click', e => {
+        if (e.target.id === 'modal-confirm-eliminar') cerrarConfirmEliminar();
     });
 
     // ---------- SUBMIT: NUEVO CRONOGRAMA ----------

@@ -43,6 +43,60 @@ foreach ($proveedores_dp as $p) {
 }
 
 // ============================================================
+// ÓRDENES DE COMPRA DISPONIBLES
+// ============================================================
+// tab_enc_ordcomp con ind_estado = 1 (Aprobado) y sin factura asociada:
+// son las únicas que se pueden vincular a una factura nueva.
+// NOTA: se carga ANTES del bloque POST porque la validación de "nueva
+// factura" (más abajo) depende de $ordenes_idx para comprobar que la OC
+// existe y a qué proveedor pertenece.
+
+// Total ya facturado contra cada orden, para calcular el saldo disponible
+// con la misma lógica que valida fun_insert_cuentasxpagar (val_total -
+// suma de facturas ya registradas contra esa orden).
+$list_facturado_x_oc = $pdo->prepare(
+    "SELECT id_ordencompra, COALESCE(SUM(val_factura), 0) AS val_facturado
+       FROM tab_cuentasxpagar
+      WHERE id_ordencompra IS NOT NULL
+      GROUP BY id_ordencompra"
+);
+$list_facturado_x_oc->execute();
+$facturado_x_oc = [];
+foreach ($list_facturado_x_oc->fetchAll(PDO::FETCH_ASSOC) as $f) {
+    $facturado_x_oc[(string)$f['id_ordencompra']] = (float)$f['val_facturado'];
+}
+
+$list_ordencompra->execute();
+$ordenes_todas = $list_ordencompra->fetchAll(PDO::FETCH_ASSOC);
+
+// Se excluyen las órdenes que no están Aprobadas (Pendientes o Anuladas no
+// pasan la validación de fun_insert_cuentasxpagar) y las que ya no tienen
+// saldo disponible (ya facturadas por el valor total de la orden): ninguna
+// de las dos se puede usar en una factura nueva, así que no tiene sentido
+// mostrarlas como opción.
+$ordenes = [];
+foreach ($ordenes_todas as $o) {
+    if ((int)$o['ind_estado'] !== 1) {
+        continue;
+    }
+
+    $facturado = $facturado_x_oc[(string)$o['id_ordencompra']] ?? 0.0;
+    $saldo     = (float)$o['val_total'] - $facturado;
+    if ($saldo <= 0) {
+        continue;
+    }
+    $o['val_facturado']        = $facturado;
+    $o['val_saldo_disponible'] = $saldo;
+    $ordenes[] = $o;
+}
+
+// Índice id_ordencompra => id_proveedor, para validar la pareja en el POST
+$ordenes_idx = [];
+foreach ($ordenes as $o) {
+    $ordenes_idx[(string)$o['id_ordencompra']] = $o['id_proveedor'];
+}
+
+// ============================================================
 // MANEJO DE PETICIONES POST (SIEMPRE RESPONDEN CON JSON)
 // ============================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -146,20 +200,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode($respuesta);
         exit;
     }
-}
-
-// ============================================================
-// ÓRDENES DE COMPRA DISPONIBLES
-// ============================================================
-// tab_enc_ordcomp con ind_estado = 1 (Aprobado) y sin factura asociada:
-// son las únicas que se pueden vincular a una factura nueva.
-$list_ordencompra->execute();
-$ordenes = $list_ordencompra->fetchAll(PDO::FETCH_ASSOC);
-
-// Índice id_ordencompra => id_proveedor, para validar la pareja en el POST
-$ordenes_idx = [];
-foreach ($ordenes as $o) {
-    $ordenes_idx[(string)$o['id_ordencompra']] = $o['id_proveedor'];
 }
 
 // ============================================================
@@ -442,6 +482,7 @@ ob_start();
                     <?php endforeach; ?>
                 </select>
             </div>
+            <p class="field-hint" id="oc-prov-lock-hint" style="display:none"></p>
 
             <div class="oc-filter-bar oc-filter-bar-sec">
                 <div class="oc-filter-field">

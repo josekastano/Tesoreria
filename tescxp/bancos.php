@@ -113,8 +113,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Banco no válido.');
             }
 
-            $upd_banco_estado->execute([
+            // fun_update_bancos exige también el nombre, así que se recupera
+            // el nombre actual antes de togglear el estado (no existe una
+            // función SQL dedicada solo a cambiar el estado).
+            $get_banco->execute([':wid_banco' => $id_banco]);
+            $banco_actual = $get_banco->fetch(PDO::FETCH_ASSOC);
+
+            if (!$banco_actual) {
+                throw new Exception('El banco no existe o se encuentra borrado.');
+            }
+
+            $upd_banco->execute([
                 ':wid_banco'   => $id_banco,
+                ':wnom_banco'  => $banco_actual['nom_banco'],
                 ':wind_estado' => $ind_estado ? 'true' : 'false',
             ]);
 
@@ -174,7 +185,7 @@ $bancos = $list_bancos_full->fetchAll(PDO::FETCH_ASSOC);
 ob_start();
 ?>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-
+<link rel="stylesheet" href="modules/tescxp/css/bancos.css">
 <div id="mod-bancos" class="app-view active">
 
     <!-- ENCABEZADO -->
@@ -369,8 +380,24 @@ ob_start();
     </div>
 </div>
 
+<!-- MODAL: CONFIRMAR ELIMINACIÓN (estilo módulo Compras) -->
+<div id="modal-confirm-eliminar" class="modal-overlay hidden">
+    <div class="modal-box confirm-box">
+        <div class="confirm-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <h4 id="confirm-eliminar-title"></h4>
+        <p id="confirm-eliminar-body"></p>
+        <div class="confirm-buttons">
+            <button type="button" class="btn-cancelar" id="confirm-eliminar-cancel-btn">Cancelar</button>
+            <button type="button" class="btn-eliminar" id="confirm-eliminar-ok-btn">Sí, eliminar</button>
+        </div>
+    </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast" class="hidden"><span id="toast-message"></span></div>
+
+<script src="modules/tescxp/js/bancos.js"></script>
+
 
 <?php
 $moduleContent = ob_get_clean();

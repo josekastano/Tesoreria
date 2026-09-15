@@ -48,8 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Pago no válido.');
             }
 
-            $det_pago_cxp->execute([':wid_pago' => (int)$id_pago]);
-            $pago = $det_pago_cxp->fetch(PDO::FETCH_ASSOC);
+            $get_pago_cxp->execute([':wid_pago' => (int)$id_pago]);
+            $pago = $get_pago_cxp->fetch(PDO::FETCH_ASSOC);
 
             if (!$pago) {
                 throw new Exception('El pago no existe.');
@@ -62,6 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // ---------- APLICAR RESPUESTA DEL BANCO (CSV) ----------
+        // >>> CORREGIDO: esta importación es la que CREA el historial de pagos,
+        // no la actualización de un pago que ya existía. Cada fila identifica el
+        // giro por (id_archivo_plano, id_factura, id_cuota) — el mismo trío que
+        // ya se le envió al banco en tab_det_archivo_plano — y de ahí se toma
+        // val_a_pagar (nunca del archivo del banco, para que nadie pueda inflar
+        // o desinflar un pago con una fila mal armada).
         if (isset($_POST['btn_importar'])) {
             $filas_json = $_POST['hid_filas_importar'] ?? '';
             $filas      = json_decode($filas_json, true);
@@ -83,28 +89,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $aplicadas = 0;
             $omitidas  = [];
 
-            $conexion->beginTransaction();
+            $pdo->beginTransaction();
 
             foreach ($filas as $f) {
-                $id_pago = trim((string)($f['id_pago'] ?? ''));
-                $estado  = strtoupper(trim((string)($f['estado_pago'] ?? '')));
-                $ref     = trim((string)($f['referencia_bancaria'] ?? ''));
-                $cod     = strtoupper(trim((string)($f['cod_bancario'] ?? '')));
+                $id_archivo = trim((string)($f['id_archivo_plano'] ?? ''));
+                $id_factura = trim((string)($f['id_factura'] ?? ''));
+                $id_cuota   = trim((string)($f['id_cuota'] ?? ''));
+                $estado     = strtoupper(trim((string)($f['estado_pago'] ?? '')));
+                $ref        = trim((string)($f['referencia_bancaria'] ?? ''));
+                $cod        = strtoupper(trim((string)($f['cod_bancario'] ?? '')));
+                $fec_pago   = trim((string)($f['fec_pago'] ?? '')) ?: date('Y-m-d');
 
-                if ($id_pago === '' || !ctype_digit($id_pago)) {
-                    $omitidas[] = "Pago '{$id_pago}': identificador no válido.";
+                $etiqueta = "Archivo {$id_archivo} / Factura {$id_factura} / Cuota {$id_cuota}";
+
+                if ($id_archivo === '' || !ctype_digit($id_archivo) ||
+                    $id_factura === '' || !ctype_digit($id_factura) ||
+                    $id_cuota   === '' || !ctype_digit($id_cuota)) {
+                    $omitidas[] = "{$etiqueta}: identificadores no válidos.";
                     continue;
                 }
 
                 // estado_pago CHECK IN ('PENDIENTE','APROBADO','RECHAZADO')
                 if (!in_array($estado, ['APROBADO', 'RECHAZADO'], true)) {
-                    $omitidas[] = "Pago #{$id_pago}: el estado '{$estado}' no es APROBADO ni RECHAZADO.";
+                    $omitidas[] = "{$etiqueta}: el estado '{$estado}' no es APROBADO ni RECHAZADO.";
                     continue;
                 }
 
                 // referencia_bancaria VARCHAR(30)
-                if (mb_strlen($ref) > 30) {
-                    $omitidas[] = "Pago #{$id_pago}: la referencia bancaria supera 30 caracteres.";
+                if (strlen($ref) > 30) {
+                    $omitidas[] = "{$etiqueta}: la referencia bancaria supera 30 caracteres.";
                     continue;
                 }
 
@@ -112,58 +125,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $id_motivo = null;
                 if ($estado === 'RECHAZADO') {
                     if ($cod === '') {
-                        $omitidas[] = "Pago #{$id_pago}: rechazado sin código bancario.";
+                        $omitidas[] = "{$etiqueta}: rechazado sin código bancario.";
                         continue;
                     }
                     if (!isset($mapa_motivos[$cod])) {
-                        $omitidas[] = "Pago #{$id_pago}: el código '{$cod}' no está en el catálogo de motivos.";
+                        $omitidas[] = "{$etiqueta}: el código '{$cod}' no está en el catálogo de motivos.";
                         continue;
                     }
                     $id_motivo = $mapa_motivos[$cod];
                 }
 
-                // Solo se aplica sobre pagos que siguen en PENDIENTE
-                $det_pago_cxp->execute([':wid_pago' => (int)$id_pago]);
-                $pago_actual = $det_pago_cxp->fetch(PDO::FETCH_ASSOC);
+                // La línea tiene que existir de verdad en el archivo plano enviado al banco
+                $get_linea_archivo_plano->execute([
+                    ':wid_archivo_plano' => (int)$id_archivo,
+                    ':wid_factura'       => (int)$id_factura,
+                    ':wid_cuota'         => (int)$id_cuota,
+                ]);
+                $linea = $get_linea_archivo_plano->fetch(PDO::FETCH_ASSOC);
 
-                if (!$pago_actual) {
-                    $omitidas[] = "Pago #{$id_pago}: no existe en el sistema.";
+                if (!$linea) {
+                    $omitidas[] = "{$etiqueta}: esa línea no existe en el archivo plano.";
                     continue;
                 }
-                if ($pago_actual['estado_pago'] !== 'PENDIENTE') {
-                    $omitidas[] = "Pago #{$id_pago}: ya está en {$pago_actual['estado_pago']}.";
+
+                // No duplicar el historial si el archivo de respuesta se importa dos veces
+                $check_pago_de_linea->execute([
+                    ':wid_archivo_plano' => (int)$id_archivo,
+                    ':wid_factura'       => (int)$id_factura,
+                    ':wid_cuota'         => (int)$id_cuota,
+                ]);
+                if ($check_pago_de_linea->fetch(PDO::FETCH_ASSOC)) {
+                    $omitidas[] = "{$etiqueta}: ya tiene un pago registrado (¿archivo reimportado?).";
                     continue;
                 }
 
-                $upd_pago_cxp_estado->execute([
-                    ':wid_pago'             => (int)$id_pago,
+                // ---- CREAR EL PAGO — el valor sale de tab_det_archivo_plano, no del CSV ----
+                $ins_pago_cxp->execute([
+                    ':wid_factura'          => (int)$id_factura,
+                    ':wid_cuota'            => (int)$id_cuota,
+                    ':wid_archivo_plano'    => (int)$id_archivo,
+                    ':wfec_pago'            => $fec_pago,
+                    ':wval_pago'            => (float)$linea['val_a_pagar'],
+                    ':wreferencia_bancaria' => $ref !== '' ? $ref : null,
+                ]);
+                // >>> SUPUESTO: fun_insert_pagos_cxp devuelve el id_pago recién
+                // creado (mismo patrón que el resto de funciones fun_insert_* del
+                // proyecto). Si tu función no retorna el id, hay que reemplazar
+                // esta línea por una consulta que lo busque por los datos recién
+                // insertados.
+                $id_pago_nuevo = (int)$ins_pago_cxp->fetchColumn();
+
+                // ---- FIJAR EL ESTADO FINAL QUE TRAJO EL BANCO ----
+                $upd_estado_pago_cxp->execute([
+                    ':wid_pago'             => $id_pago_nuevo,
                     ':westado_pago'         => $estado,
                     ':wreferencia_bancaria' => $ref !== '' ? $ref : null,
                     ':wid_motivo_rechazo'   => $id_motivo,
                 ]);
 
-                // APROBADO descuenta el saldo de la factura y marca la cuota como pagada
+                // ---- SI QUEDÓ APROBADO: cuota pagada, saldo recalculado, cronograma cerrado ----
                 if ($estado === 'APROBADO') {
-                    $upd_cuota_pagada->execute([
-                        ':wid_factura' => (int)$pago_actual['id_factura'],
-                        ':wid_cuota'   => (int)$pago_actual['id_cuota'],
+                    $mark_cuota_pagada->execute([
+                        ':wid_factura' => (int)$id_factura,
+                        ':wid_cuota'   => (int)$id_cuota,
                     ]);
-                    $upd_factura_saldo->execute([
-                        ':wid_factura' => (int)$pago_actual['id_factura'],
-                        ':wval_pago'   => (float)$pago_actual['val_pago'],
+                    $recalc_saldo_factura->execute([
+                        ':wid_factura' => (int)$id_factura,
                     ]);
+                    $get_cronograma_de_cuota->execute([
+                        ':wid_factura' => (int)$id_factura,
+                        ':wid_cuota'   => (int)$id_cuota,
+                    ]);
+                    $cronograma = $get_cronograma_de_cuota->fetch(PDO::FETCH_ASSOC);
+                    if ($cronograma) {
+                        $cerrar_cronograma_si_pagado->execute([
+                            ':wid_cronograma' => (int)$cronograma['id_cronograma'],
+                        ]);
+                    }
                 }
 
                 $aplicadas++;
             }
 
-            $conexion->commit();
+            $pdo->commit();
 
             $respuesta['success']   = $aplicadas > 0;
             $respuesta['aplicadas'] = $aplicadas;
             $respuesta['omitidas']  = $omitidas;
             $respuesta['message']   = $aplicadas > 0
-                ? "Se aplicaron {$aplicadas} pago(s)." . (count($omitidas) ? ' ' . count($omitidas) . ' fila(s) omitida(s).' : '')
+                ? "Se registraron {$aplicadas} pago(s) a partir de la respuesta del banco." . (count($omitidas) ? ' ' . count($omitidas) . ' fila(s) omitida(s).' : '')
                 : 'Ninguna fila se pudo aplicar.';
             echo json_encode($respuesta);
             exit;
@@ -174,8 +224,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
 
     } catch (Exception $e) {
-        if (isset($conexion) && $conexion->inTransaction()) {
-            $conexion->rollBack();
+        if (isset($pdo) && $pdo->inTransaction()) {
+            $pdo->rollBack();
         }
         $mensaje = limpiar_error_pgsql($e->getMessage());
         if (empty($mensaje)) {
@@ -404,9 +454,10 @@ ob_start();
 
                 <p class="config-hint">
                     <i class="fas fa-info-circle"></i>
-                    <span>El archivo debe traer las columnas <strong>id_pago</strong>, <strong>estado_pago</strong>
-                    (APROBADO o RECHAZADO), <strong>referencia_bancaria</strong> y <strong>cod_bancario</strong>
-                    (obligatorio en los rechazos). Solo se aplican los pagos que estén en estado Pendiente.</span>
+                    <span>El archivo debe traer las columnas <strong>id_archivo_plano</strong>, <strong>id_factura</strong>,
+                    <strong>id_cuota</strong>, <strong>estado_pago</strong> (APROBADO o RECHAZADO),
+                    <strong>referencia_bancaria</strong> y <strong>cod_bancario</strong> (obligatorio en los rechazos).
+                    Cada fila crea el pago en el historial; si esa línea ya tiene un pago registrado, se omite.</span>
                 </p>
 
                 <div class="import-resumen" id="import-resumen">

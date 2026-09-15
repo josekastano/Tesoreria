@@ -108,10 +108,34 @@ function clearFilters() {
 }
 
 // ============================================================
-// 5. ELIMINAR BANCO (borrado lógico, función global)
+// 5. MODAL DE CONFIRMACIÓN DE ELIMINACIÓN (estilo módulo Compras)
+// ============================================================
+let _confirmDeleteAction = null;
+
+function abrirConfirmEliminar(titulo, mensaje, accion) {
+    setText('confirm-eliminar-title', titulo);
+    setText('confirm-eliminar-body', mensaje);
+    _confirmDeleteAction = accion;
+    show('modal-confirm-eliminar');
+}
+
+function cerrarConfirmEliminar() {
+    hide('modal-confirm-eliminar');
+    _confirmDeleteAction = null;
+}
+
+// ============================================================
+// 5.1 ELIMINAR BANCO (borrado lógico, función global)
 // ============================================================
 window.eliminarBanco = function(idBanco, nombreBanco) {
-    if (!confirm(`¿Desea eliminar el banco "${nombreBanco}" (${idBanco})?\nEsta acción es reversible desde la base de datos.`)) return;
+    abrirConfirmEliminar(
+        `Eliminar "${nombreBanco}"`,
+        `¿Desea eliminar el banco ${nombreBanco} (${idBanco})? Esta acción es reversible desde la base de datos.`,
+        () => ejecutarEliminarBanco(idBanco)
+    );
+};
+
+function ejecutarEliminarBanco(idBanco) {
     const formData = new FormData();
     formData.append('btn_eliminar', '1');
     formData.append('hid_del_id_banco', idBanco);
@@ -131,7 +155,7 @@ window.eliminarBanco = function(idBanco, nombreBanco) {
         }
     })
     .catch(() => showToast('Error de conexión', 'error'));
-};
+}
 
 // ============================================================
 // 6. ACTIVAR / DESACTIVAR RÁPIDO (función global)
@@ -190,6 +214,17 @@ function initBancosModule() {
     });
     document.getElementById('modal-edit-banco')?.addEventListener('click', e => {
         if (e.target.id === 'modal-edit-banco') closeEditModal();
+    });
+
+    // ---------- MODAL: CONFIRMAR ELIMINACIÓN ----------
+    document.getElementById('confirm-eliminar-cancel-btn')?.addEventListener('click', cerrarConfirmEliminar);
+    document.getElementById('confirm-eliminar-ok-btn')?.addEventListener('click', () => {
+        const accion = _confirmDeleteAction;
+        cerrarConfirmEliminar();
+        if (typeof accion === 'function') accion();
+    });
+    document.getElementById('modal-confirm-eliminar')?.addEventListener('click', e => {
+        if (e.target.id === 'modal-confirm-eliminar') cerrarConfirmEliminar();
     });
 
     // ---------- SUBMIT: NUEVO BANCO ----------

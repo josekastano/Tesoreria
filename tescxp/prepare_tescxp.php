@@ -1308,6 +1308,36 @@ try {
           ORDER BY c.fec_vencimiento"
     );
 
+    // ---- UNA LÍNEA DE ARCHIVO PLANO (para validar e importar la respuesta del banco) ----
+    // >>> NUEVO. La respuesta del banco identifica cada giro por
+    //     (id_archivo_plano, id_factura, id_cuota) porque ese es el trío que
+    //     realmente se le envió al banco (tab_det_archivo_plano). Antes de
+    //     crear el pago hay que confirmar que esa línea existe y traer
+    //     val_a_pagar, que es el valor real y no debe venir del archivo del
+    //     banco (evita que una fila mal armada infle o desinfle el pago).
+    $get_linea_archivo_plano = $pdo->prepare(
+        "SELECT  d.id_archivo_plano,
+                 d.id_factura,
+                 d.id_cuota,
+                 d.id_proveedor,
+                 d.val_a_pagar
+           FROM  tab_det_archivo_plano d
+          WHERE  d.id_archivo_plano = :wid_archivo_plano
+            AND  d.id_factura       = :wid_factura
+            AND  d.id_cuota         = :wid_cuota"
+    );
+
+    // ---- ¿ESA LÍNEA DE ARCHIVO PLANO YA TIENE UN PAGO REGISTRADO? ----
+    // >>> NUEVO. Evita duplicar el historial si el mismo archivo de respuesta
+    //     del banco se importa dos veces por error.
+    $check_pago_de_linea = $pdo->prepare(
+        "SELECT  id_pago, estado_pago
+           FROM  tab_pagos_cxp
+          WHERE  id_archivo_plano = :wid_archivo_plano
+            AND  id_factura       = :wid_factura
+            AND  id_cuota         = :wid_cuota"
+    );
+
     // ---- INSERT — fun_insert_pagos_cxp (6 params) ----
     // id_factura, id_cuota, id_archivo_plano, fec_pago, val_pago, referencia_bancaria
     //
@@ -1471,19 +1501,6 @@ try {
         "SELECT fun_update_bancos(:wid_banco, :wnom_banco, :wind_estado)"
     );
 
-    // ---- ACTIVAR / DESACTIVAR RÁPIDO (botón de la tabla) ----
-    // NOTA: fun_update_bancos exige el nombre del banco, y el botón rápido de
-    // la tabla solo envía el estado. Como este caso es solo un cambio de
-    // ind_estado, se deja como UPDATE directo (no pasa por la función) en
-    // lugar de obligar a consultar el nombre antes de cada clic. El WHERE ya
-    // exige que el banco exista y no esté borrado. Si prefieres que también
-    // pase por una función, se puede crear fun_update_estado_bancos.
-    $upd_banco_estado = $pdo->prepare(
-        "UPDATE tab_bancos
-            SET ind_estado  = :wind_estado
-          WHERE id_banco    = :wid_banco
-            AND ind_borrado = FALSE"
-    );
 
     // ---- DELETE — fun_delete_bancos (1 param) ----
     // Borrado lógico

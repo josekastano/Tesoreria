@@ -223,23 +223,29 @@ function parsearCSV(texto) {
     const sep = detectarSeparador(lineas[0]);
     const cols = parsearLinea(lineas[0], sep).map(normalizarEncabezado);
 
-    const iPago   = cols.indexOf('id_pago');
-    const iEstado = cols.indexOf('estado_pago') !== -1 ? cols.indexOf('estado_pago') : cols.indexOf('estado');
-    const iRef    = cols.indexOf('referencia_bancaria') !== -1 ? cols.indexOf('referencia_bancaria') : cols.indexOf('referencia');
-    const iCod    = cols.indexOf('cod_bancario') !== -1 ? cols.indexOf('cod_bancario') : cols.indexOf('codigo_bancario');
+    const iArchivo = cols.indexOf('id_archivo_plano');
+    const iFactura = cols.indexOf('id_factura');
+    const iCuota   = cols.indexOf('id_cuota');
+    const iEstado  = cols.indexOf('estado_pago') !== -1 ? cols.indexOf('estado_pago') : cols.indexOf('estado');
+    const iRef     = cols.indexOf('referencia_bancaria') !== -1 ? cols.indexOf('referencia_bancaria') : cols.indexOf('referencia');
+    const iCod     = cols.indexOf('cod_bancario') !== -1 ? cols.indexOf('cod_bancario') : cols.indexOf('codigo_bancario');
+    const iFecha   = cols.indexOf('fec_pago') !== -1 ? cols.indexOf('fec_pago') : cols.indexOf('fecha');
 
-    if (iPago === -1 || iEstado === -1) {
-        return { error: 'El archivo debe tener al menos las columnas id_pago y estado_pago.' };
+    if (iArchivo === -1 || iFactura === -1 || iCuota === -1 || iEstado === -1) {
+        return { error: 'El archivo debe tener al menos las columnas id_archivo_plano, id_factura, id_cuota y estado_pago.' };
     }
 
     const filas = lineas.slice(1).map((linea, n) => {
         const c = parsearLinea(linea, sep);
         return {
             linea: n + 2,
-            id_pago: (c[iPago] ?? '').trim(),
+            id_archivo_plano: (c[iArchivo] ?? '').trim(),
+            id_factura: (c[iFactura] ?? '').trim(),
+            id_cuota: (c[iCuota] ?? '').trim(),
             estado_pago: (c[iEstado] ?? '').trim().toUpperCase(),
             referencia_bancaria: iRef !== -1 ? (c[iRef] ?? '').trim() : '',
-            cod_bancario: iCod !== -1 ? (c[iCod] ?? '').trim().toUpperCase() : ''
+            cod_bancario: iCod !== -1 ? (c[iCod] ?? '').trim().toUpperCase() : '',
+            fec_pago: iFecha !== -1 ? (c[iFecha] ?? '').trim() : ''
         };
     });
 
@@ -249,16 +255,8 @@ function parsearCSV(texto) {
 // Valida contra los pagos que ya están en pantalla. El servidor vuelve a
 // validar todo: esto es solo para que el usuario vea qué va a pasar.
 function validarFila(fila) {
-    if (!/^\d+$/.test(fila.id_pago)) {
-        return 'El id_pago no es un número.';
-    }
-
-    const pago = pagosData.find(p => Number(p.id_pago) === Number(fila.id_pago));
-    if (!pago) {
-        return `El pago #${fila.id_pago} no existe en el sistema.`;
-    }
-    if (pago.estado_pago !== 'PENDIENTE') {
-        return `El pago #${fila.id_pago} ya está en ${capEstado(pago.estado_pago)}.`;
+    if (!/^\d+$/.test(fila.id_archivo_plano) || !/^\d+$/.test(fila.id_factura) || !/^\d+$/.test(fila.id_cuota)) {
+        return 'id_archivo_plano, id_factura e id_cuota deben ser números.';
     }
     if (!['APROBADO', 'RECHAZADO'].includes(fila.estado_pago)) {
         return `Estado "${fila.estado_pago || 'vacío'}": debe ser APROBADO o RECHAZADO.`;
@@ -268,6 +266,17 @@ function validarFila(fila) {
     }
     if (fila.referencia_bancaria.length > 30) {
         return 'La referencia bancaria supera 30 caracteres.';
+    }
+
+    // Chequeo local con lo que ya está cargado en pantalla. El servidor vuelve
+    // a validar contra tab_det_archivo_plano, que aquí no está disponible.
+    const yaExiste = pagosData.some(p =>
+        Number(p.id_archivo_plano) === Number(fila.id_archivo_plano) &&
+        Number(p.id_factura)       === Number(fila.id_factura) &&
+        Number(p.id_cuota)         === Number(fila.id_cuota)
+    );
+    if (yaExiste) {
+        return 'Esa línea ya tiene un pago registrado en el historial.';
     }
     return null;
 }
@@ -285,7 +294,6 @@ function renderImportacion() {
         lista.innerHTML = '<p class="import-vacio">El archivo no trae filas para aplicar.</p>';
     } else {
         lista.innerHTML = filasImportadas.map(f => {
-            const pago = pagosData.find(p => Number(p.id_pago) === Number(f.id_pago));
             const detalle = f.error
                 ? esc(f.error)
                 : `${capEstado(f.estado_pago)}${f.cod_bancario ? ' — ' + esc(f.cod_bancario) : ''}${f.referencia_bancaria ? ' — Ref. ' + esc(f.referencia_bancaria) : ''}`;
@@ -295,19 +303,21 @@ function renderImportacion() {
                         <i class="fas fa-${f.error ? 'xmark' : 'check'}"></i>
                     </span>
                     <div class="import-row-info">
-                        <span class="import-row-pago">Pago #${esc(f.id_pago) || '—'}${pago ? ' — ' + esc(pago.nom_tercero) : ''}</span>
+                        <span class="import-row-pago">Archivo #${esc(f.id_archivo_plano) || '—'} — Fact. #${esc(f.id_factura) || '—'} / Cuota ${esc(f.id_cuota) || '—'}</span>
                         <span class="import-row-meta">Línea ${f.linea} · ${detalle}</span>
                     </div>
-                    <span class="import-row-valor">${pago ? formatMoney(pago.val_pago) : '—'}</span>
                 </div>`;
         }).join('');
     }
 
     setVal('hid-filas-importar', JSON.stringify(validas.map(f => ({
-        id_pago: f.id_pago,
+        id_archivo_plano: f.id_archivo_plano,
+        id_factura: f.id_factura,
+        id_cuota: f.id_cuota,
         estado_pago: f.estado_pago,
         referencia_bancaria: f.referencia_bancaria,
-        cod_bancario: f.cod_bancario
+        cod_bancario: f.cod_bancario,
+        fec_pago: f.fec_pago
     }))));
 
     const btn = document.getElementById('import-btn-apply');

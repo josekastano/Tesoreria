@@ -483,6 +483,19 @@ ob_start();
     </div>
 </div>
 
+<!-- MODAL: CONFIRMAR ACCIÓN (estilo módulo Compras) -->
+<div id="modal-confirm-accion" class="modal-overlay hidden">
+    <div class="modal-box confirm-box">
+        <div class="confirm-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <h4 id="confirm-accion-title"></h4>
+        <p id="confirm-accion-body"></p>
+        <div class="confirm-buttons">
+            <button type="button" class="btn-cancelar" id="confirm-accion-cancel-btn">Cancelar</button>
+            <button type="button" class="btn-confirmar-accion" id="confirm-accion-ok-btn">Confirmar</button>
+        </div>
+    </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast" class="hidden"><span id="toast-message"></span></div>
 

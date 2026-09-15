@@ -366,6 +366,19 @@ ob_start();
     </div>
 </div>
 
+<!-- MODAL: CONFIRMAR ELIMINACIÓN (estilo módulo Compras) -->
+<div id="modal-confirm-eliminar" class="modal-overlay hidden">
+    <div class="modal-box confirm-box">
+        <div class="confirm-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <h4 id="confirm-eliminar-title"></h4>
+        <p id="confirm-eliminar-body"></p>
+        <div class="confirm-buttons">
+            <button type="button" class="btn-cancelar" id="confirm-eliminar-cancel-btn">Cancelar</button>
+            <button type="button" class="btn-eliminar" id="confirm-eliminar-ok-btn">Sí, eliminar</button>
+        </div>
+    </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast" class="hidden"><span id="toast-message"></span></div>
 

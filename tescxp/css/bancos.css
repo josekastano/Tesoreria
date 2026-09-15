@@ -9,7 +9,7 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-#mod-bancos {
+:root {
     --dash-bg:           #ffffff;
     --dash-card:         #ffffff;
     --dash-border:       #e9edf2;
@@ -19,8 +19,9 @@
     --dash-text-body:    #1e293b;
     --dash-text-sub:     #475569;
     --dash-text-muted:   #94a3b8;
-    --dash-blue:         #3b82f6;
-    --dash-blue-light:   #eff6ff;
+    --dash-blue:         var(--color-primary, #3b82f6);
+    --dash-blue-light:   color-mix(in srgb, var(--dash-blue) 12%, white);
+    --dash-blue-dark:    color-mix(in srgb, var(--dash-blue) 80%, black);
     --dash-green-dark:   #059669;
     --dash-green-light:  #ecfdf5;
     --dash-red:          #ef4444;
@@ -82,9 +83,9 @@
 }
 
 #mod-bancos #btn-add-banco:hover {
-    background: #2563eb;
+    background: var(--dash-blue-dark);
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(59,130,246,0.2);
+    box-shadow: 0 4px 8px color-mix(in srgb, var(--dash-blue) 20%, transparent);
 }
 
 /* ---- STATS ---- */
@@ -189,7 +190,7 @@
 
 #mod-bancos .search-input:focus {
     border-color: var(--dash-blue);
-    box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--dash-blue) 10%, transparent);
 }
 
 #mod-bancos .filter-toggle-group { display: flex; gap: 6px; }
@@ -337,16 +338,26 @@
 }
 
 #mod-bancos .btn-primary,
-.modal-footer .btn-primary { background: #3b82f6; color: white; }
+.modal-footer .btn-primary { background: var(--dash-blue); color: white; }
 
 #mod-bancos .btn-primary:hover,
-.modal-footer .btn-primary:hover { background: #2563eb; }
+.modal-footer .btn-primary:hover { background: var(--dash-blue-dark); }
+
+/* Dentro de un modal "verde" (crear), el boton principal debe coordinar
+   con el color primario (header, pestana activa y foco de campos ya usan
+   ese mismo color), en vez del azul que corresponde a los modales "editar". */
+.modal-header.green ~ .modal-footer .btn-primary {
+    background: var(--color-primary, #2d8653);
+}
+.modal-header.green ~ .modal-footer .btn-primary:hover {
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 80%, black);
+}
 
 #mod-bancos .btn-success,
-.modal-footer .btn-success { background: #2d8653; color: white; }
+.modal-footer .btn-success { background: var(--color-primary, #2d8653); color: white; }
 
 #mod-bancos .btn-success:hover,
-.modal-footer .btn-success:hover { background: #1e5c3a; }
+.modal-footer .btn-success:hover { background: color-mix(in srgb, var(--color-primary, #2d8653) 68%, black); }
 
 #mod-bancos .btn-secondary,
 .modal-footer .btn-secondary {
@@ -394,8 +405,8 @@
     flex-shrink: 0;
 }
 
-.modal-header.green { background: #2d8653; color: white; }
-.modal-header.blue  { background: #3b82f6; color: white; }
+.modal-header.green { background: var(--color-primary, #2d8653); color: white; }
+.modal-header.blue  { background: var(--dash-blue); color: white; }
 
 .modal-header h2 {
     font-size: 18px; font-weight: 700; margin: 0;
@@ -433,6 +444,65 @@
 }
 
 /* ============================================
+   MODAL: CONFIRMAR ELIMINACIÓN (estilo módulo Compras)
+   ============================================ */
+.modal-box.confirm-box {
+    max-width: 400px;
+    text-align: center;
+}
+
+.confirm-icon {
+    font-size: 48px;
+    margin: 24px 0 12px;
+    color: var(--dash-amber);
+}
+
+.confirm-box h4 { font-size: 18px; margin-bottom: 8px; padding: 0 24px; font-family: var(--dash-font); }
+.confirm-box p  { margin-bottom: 20px; color: var(--dash-text-sub); padding: 0 24px; font-family: var(--dash-font); }
+
+.confirm-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    padding: 0 24px 24px;
+}
+
+.btn-cancelar {
+    background: #f1f5f9;
+    border: 1.5px solid #c4c9d4;
+    padding: 12px 28px;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    color: #475569;
+    font-family: var(--dash-font);
+    transition: background 0.2s;
+}
+
+.btn-cancelar:hover { background: #e2e8f0; }
+
+.confirm-buttons .btn-eliminar {
+    background: #ef4444 !important;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 30px;
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: var(--dash-font);
+    transition: background 0.2s ease;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.confirm-buttons .btn-eliminar:hover {
+    background: #dc2626 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+/* ============================================
    FORMULARIOS
    ============================================ */
 .form-grid {
@@ -457,7 +527,7 @@
     width: 100%;
     padding: 11px 16px;
     height: 44px;
-    border: 1.5px solid #b2d8c4;
+    border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white);
     border-radius: 50px;
     font-family: 'DM Sans', system-ui, sans-serif;
     font-size: 13px;
@@ -469,14 +539,14 @@
 }
 
 .form-input:hover {
-    background: #edf7f2;
-    border-color: #7ecba4;
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: color-mix(in srgb, var(--color-primary, #2d8653) 52%, white);
 }
 
 .form-input:focus {
-    background: #edf7f2;
-    border-color: #2d8653;
-    box-shadow: 0 0 0 3px rgba(45, 134, 83, 0.12);
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: var(--color-primary, #2d8653);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #2d8653) 12%, transparent);
 }
 
 .form-input::placeholder { color: #b0b8c9; }
@@ -492,7 +562,7 @@
     width: 100%;
     height: 44px;
     padding: 11px 16px;
-    border: 1.5px solid #b2d8c4;
+    border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white);
     border-radius: 50px;
     font-family: 'DM Sans', system-ui, sans-serif;
     font-size: 13px;
@@ -506,14 +576,14 @@
 }
 
 .form-select:hover {
-    background: #edf7f2;
-    border-color: #7ecba4;
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: color-mix(in srgb, var(--color-primary, #2d8653) 52%, white);
 }
 
 .form-select:focus {
-    background: #edf7f2;
-    border-color: #2d8653;
-    box-shadow: 0 0 0 3px rgba(45, 134, 83, 0.12);
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: var(--color-primary, #2d8653);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #2d8653) 12%, transparent);
 }
 
 .field-error {

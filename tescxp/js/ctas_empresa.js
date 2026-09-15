@@ -109,10 +109,34 @@ function clearFilters() {
 }
 
 // ============================================================
-// 5. ELIMINAR CUENTA (función global)
+// 5. MODAL DE CONFIRMACIÓN DE ELIMINACIÓN (estilo módulo Compras)
+// ============================================================
+let _confirmDeleteAction = null;
+
+function abrirConfirmEliminar(titulo, mensaje, accion) {
+    setText('confirm-eliminar-title', titulo);
+    setText('confirm-eliminar-body', mensaje);
+    _confirmDeleteAction = accion;
+    show('modal-confirm-eliminar');
+}
+
+function cerrarConfirmEliminar() {
+    hide('modal-confirm-eliminar');
+    _confirmDeleteAction = null;
+}
+
+// ============================================================
+// 5.1 ELIMINAR CUENTA (función global)
 // ============================================================
 window.eliminarCuenta = function(idEmpresa, ctaEmpresa, nombreBanco) {
-    if (!confirm(`¿Desea eliminar la cuenta ${ctaEmpresa} (${nombreBanco})?\nEsta acción es reversible desde la base de datos.`)) return;
+    abrirConfirmEliminar(
+        `Eliminar cuenta ${ctaEmpresa}`,
+        `¿Desea eliminar la cuenta ${ctaEmpresa} (${nombreBanco})? Esta acción es reversible desde la base de datos.`,
+        () => ejecutarEliminarCuenta(idEmpresa, ctaEmpresa)
+    );
+};
+
+function ejecutarEliminarCuenta(idEmpresa, ctaEmpresa) {
     const formData = new FormData();
     formData.append('btn_eliminar', '1');
     formData.append('hid_del_id_empresa', idEmpresa);
@@ -133,7 +157,7 @@ window.eliminarCuenta = function(idEmpresa, ctaEmpresa, nombreBanco) {
         }
     })
     .catch(() => showToast('Error de conexión', 'error'));
-};
+}
 
 // ============================================================
 // 6. INICIALIZACIÓN GENERAL
@@ -166,6 +190,17 @@ function initCuentaModule() {
     });
     document.getElementById('modal-edit-cuenta')?.addEventListener('click', e => {
         if (e.target.id === 'modal-edit-cuenta') closeEditModal();
+    });
+
+    // ---------- MODAL: CONFIRMAR ELIMINACIÓN ----------
+    document.getElementById('confirm-eliminar-cancel-btn')?.addEventListener('click', cerrarConfirmEliminar);
+    document.getElementById('confirm-eliminar-ok-btn')?.addEventListener('click', () => {
+        const accion = _confirmDeleteAction;
+        cerrarConfirmEliminar();
+        if (typeof accion === 'function') accion();
+    });
+    document.getElementById('modal-confirm-eliminar')?.addEventListener('click', e => {
+        if (e.target.id === 'modal-confirm-eliminar') cerrarConfirmEliminar();
     });
 
     // ---------- SUBMIT: NUEVA CUENTA ----------

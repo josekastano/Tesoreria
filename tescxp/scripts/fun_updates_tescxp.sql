@@ -570,3 +570,156 @@ EXCEPTION
         RAISE EXCEPTION 'ERROR: %', public.fun_mensaje_error(SQLSTATE, SQLERRM); 
 END; 
 $BODY$ LANGUAGE PLPGSQL;
+
+--------------------------------------------------------------------------------------------------------------------------------------
+-- FUNCIÓN DE UPDATE DE BANCOS
+-- NOTA: Actualiza el nombre y el indicador de estado del banco. Si se envía wind_estado en
+--       FALSE (inactivar), no se permite hacerlo si el banco está siendo usado en cuentas
+--       activas de la empresa o de proveedores.
+--------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fun_update_bancos (wid_banco     tab_bancos.id_banco%TYPE,
+                                              wnom_banco     tab_bancos.nom_banco%TYPE,
+                                              wind_estado    tab_bancos.ind_estado%TYPE) RETURNS BOOLEAN AS
+$BODY$
+BEGIN
+
+-- VALIDAR QUE EL ID DEL BANCO NO SEA NULO
+    IF wid_banco IS NULL THEN
+        RAISE EXCEPTION 'El ID del banco no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE EL NOMBRE DEL BANCO NO SEA NULO
+    IF wnom_banco IS NULL THEN
+        RAISE EXCEPTION 'El nombre del banco no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE EL INDICADOR DE ESTADO NO SEA NULO
+    IF wind_estado IS NULL THEN
+        RAISE EXCEPTION 'El indicador de estado no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE EL BANCO EXISTA Y NO ESTÉ BORRADO
+    IF NOT EXISTS (SELECT 1 FROM tab_bancos WHERE id_banco = wid_banco AND ind_borrado = FALSE) THEN
+        RAISE EXCEPTION 'El banco % no existe o se encuentra borrado.', wid_banco;
+    END IF;
+
+-- VALIDAR QUE EL NOMBRE DEL BANCO NO SEA VACÍO
+    IF wnom_banco = '' THEN
+        RAISE EXCEPTION 'El nombre del banco no puede estar vacío.';
+    END IF;
+
+-- VALIDAR QUE EL NOMBRE DEL BANCO TENGA ENTRE 4 Y 50 CARACTERES
+    IF LENGTH(wnom_banco) < 4 OR LENGTH(wnom_banco) > 50 THEN
+        RAISE EXCEPTION 'El nombre del banco debe tener entre 4 y 50 caracteres.';
+    END IF;
+
+-- SI SE VA A INACTIVAR EL BANCO (wind_estado = FALSE), VALIDAR QUE NO ESTÉ SIENDO USADO
+    IF wind_estado = FALSE THEN
+
+        IF EXISTS (SELECT 1 FROM tab_ctas_empresa WHERE id_banco = wid_banco AND ind_borrado = FALSE) THEN
+            RAISE EXCEPTION 'El banco % está asociado a cuentas activas de la empresa y no puede ser inactivado.', wid_banco;
+        END IF;
+
+        IF EXISTS (SELECT 1 FROM tab_bancoxprov WHERE id_banco = wid_banco AND ind_borrado = FALSE) THEN
+            RAISE EXCEPTION 'El banco % está asociado a cuentas activas de proveedores y no puede ser inactivado.', wid_banco;
+        END IF;
+
+    END IF;
+
+-- SI TODO VA BIEN, SE ACTUALIZA EN tab_bancos
+    UPDATE tab_bancos
+    SET    nom_banco  = wnom_banco,
+           ind_estado = wind_estado
+    WHERE  id_banco   = wid_banco;
+
+    RETURN TRUE;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'ERROR: %', public.fun_mensaje_error(SQLSTATE, SQLERRM);
+END;
+$BODY$
+LANGUAGE PLPGSQL;
+
+--------------------------------------------------------------------------------------------------------------------------------------
+-- FUNCIÓN DE UPDATE DE PAGOS DE CUENTAS POR PAGAR
+-- NOTA: Fija el estado final que respondió el banco (APROBADO o RECHAZADO)
+--       sobre un pago creado por fun_insert_pagos_cxp. Solo aplica sobre
+--       pagos que sigan en PENDIENTE; no se puede volver a resolver uno
+--       que ya quedó APROBADO o RECHAZADO.
+--------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fun_update_pagos_cxp (wid_pago               tab_pagos_cxp.id_pago%TYPE,
+                                                 westado_pago           tab_pagos_cxp.estado_pago%TYPE,
+                                                 wreferencia_bancaria   tab_pagos_cxp.referencia_bancaria%TYPE,
+                                                 wid_motivo_rechazo     tab_pagos_cxp.id_motivo_rechazo%TYPE) RETURNS BOOLEAN AS
+$BODY$
+
+DECLARE westado_actual tab_pagos_cxp.estado_pago%TYPE;
+
+BEGIN
+
+-- VALIDAR QUE EL ID DEL PAGO NO SEA NULO
+    IF wid_pago IS NULL THEN
+        RAISE EXCEPTION 'El ID del pago no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE EL ESTADO DEL PAGO NO SEA NULO
+    IF westado_pago IS NULL THEN
+        RAISE EXCEPTION 'El estado del pago no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE EL PAGO EXISTA Y OBTENER SU ESTADO ACTUAL
+    SELECT estado_pago INTO westado_actual
+    FROM   tab_pagos_cxp
+    WHERE  id_pago = wid_pago;
+
+    IF westado_actual IS NULL THEN
+        RAISE EXCEPTION 'El pago % no existe.', wid_pago;
+    END IF;
+
+-- VALIDAR QUE EL PAGO SIGA EN PENDIENTE (NO SE PUEDE VOLVER A RESOLVER UNO YA RESUELTO)
+    IF westado_actual <> 'PENDIENTE' THEN
+        RAISE EXCEPTION 'El pago % ya está en %.', wid_pago, westado_actual;
+    END IF;
+
+-- VALIDAR QUE EL ESTADO NUEVO SEA APROBADO O RECHAZADO
+    IF westado_pago NOT IN ('APROBADO', 'RECHAZADO') THEN
+        RAISE EXCEPTION 'El estado % no es válido: debe ser APROBADO o RECHAZADO.', westado_pago;
+    END IF;
+
+-- VALIDAR QUE EL MOTIVO DE RECHAZO VENGA SOLO CUANDO EL ESTADO ES RECHAZADO
+    IF westado_pago = 'RECHAZADO' AND wid_motivo_rechazo IS NULL THEN
+        RAISE EXCEPTION 'El motivo de rechazo es obligatorio cuando el estado es RECHAZADO.';
+    END IF;
+
+    IF westado_pago <> 'RECHAZADO' AND wid_motivo_rechazo IS NOT NULL THEN
+        RAISE EXCEPTION 'El motivo de rechazo solo aplica cuando el estado es RECHAZADO.';
+    END IF;
+
+-- VALIDAR QUE EL MOTIVO DE RECHAZO EXISTA, SI SE ENVIÓ
+    IF wid_motivo_rechazo IS NOT NULL THEN
+        IF NOT EXISTS (SELECT 1 FROM tab_motivos_rechazo WHERE id_motivo_rechazo = wid_motivo_rechazo) THEN
+            RAISE EXCEPTION 'El motivo de rechazo % no existe.', wid_motivo_rechazo;
+        END IF;
+    END IF;
+
+-- VALIDAR QUE LA REFERENCIA BANCARIA NO SUPERE 30 CARACTERES
+    IF wreferencia_bancaria IS NOT NULL AND LENGTH(wreferencia_bancaria) > 30 THEN
+        RAISE EXCEPTION 'La referencia bancaria no puede superar 30 caracteres.';
+    END IF;
+
+-- SI TODO VA BIEN, SE ACTUALIZA EN tab_pagos_cxp
+    UPDATE tab_pagos_cxp
+    SET    estado_pago         = westado_pago,
+           referencia_bancaria = wreferencia_bancaria,
+           id_motivo_rechazo   = wid_motivo_rechazo
+    WHERE  id_pago             = wid_pago;
+
+    RETURN TRUE;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'ERROR: %', public.fun_mensaje_error(SQLSTATE, SQLERRM);
+END;
+$BODY$
+LANGUAGE PLPGSQL;

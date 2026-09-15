@@ -16,17 +16,21 @@
   --dash-text-body:    #1e293b;
   --dash-text-sub:     #475569;
   --dash-text-muted:   #94a3b8;
-  --dash-blue:         #3b82f6;
-  --dash-blue-light:   #eff6ff;
+  /* Igual que en Parámetros de Compras (pmtros_compras.css): el "hint" de
+     este panel usa el acento de la paleta, no el primario. */
+  --dash-blue:         var(--color-accent, #3b82f6);
+  --dash-blue-light:   color-mix(in srgb, var(--dash-blue) 12%, white);
+  --dash-blue-border:  color-mix(in srgb, var(--dash-blue) 30%, white);
   --dash-amber:        #f59e0b;
   --dash-radius:       18px;
   --dash-radius-sm:    10px;
   --dash-font:         'DM Sans', system-ui, sans-serif;
 
-  /* Paleta de la tarjeta oscura, tomada de Parámetros Generales */
-  --pc-primary:   #0a0e27;
-  --pc-secondary: #131829;
-  --pc-accent:    #00d9ff;
+  /* Paleta de la tarjeta oscura — mismo mecanismo que Parámetros de Compras:
+     --pc-primary/--pc-accent leídos de la paleta global, con degradado hacia
+     la propia versión oscura del primario en vez de un segundo color fijo. */
+  --pc-primary:   var(--color-primary, #2563eb);
+  --pc-accent:    var(--color-accent, #00d9ff);
   --pc-text:      #ffffff;
 
   font-family: var(--dash-font);
@@ -77,7 +81,7 @@
    TARJETA RESUMEN (oscura)
    ============================================================ */
 #mod-pmtros-tescxp .pmt-cc {
-  background: linear-gradient(135deg, var(--pc-primary), var(--pc-secondary));
+  background: linear-gradient(135deg, var(--pc-primary), color-mix(in srgb, var(--pc-primary) 70%, black));
   border-radius: var(--dash-radius);
   overflow: hidden;
   color: var(--pc-text);
@@ -87,9 +91,9 @@
 #mod-pmtros-tescxp .pmt-cc-top { padding: 18px 20px 0; display: flex; justify-content: flex-end; }
 
 #mod-pmtros-tescxp .pmt-badge-act {
-  background: rgba(0,217,255,.15);
+  background: color-mix(in srgb, var(--pc-accent) 15%, transparent);
   color: var(--pc-accent);
-  border: 1px solid rgba(0,217,255,.28);
+  border: 1px solid color-mix(in srgb, var(--pc-accent) 28%, transparent);
   font-size: 11px; font-weight: 600;
   padding: 4px 12px; border-radius: 30px;
   display: inline-flex; align-items: center; gap: 6px;
@@ -181,13 +185,13 @@
 
 #mod-pmtros-tescxp .pmt-cfg-icon {
   width: 36px; height: 36px;
-  background: var(--pc-accent);
+  background: color-mix(in srgb, var(--pc-accent) 15%, white);
   border-radius: var(--dash-radius-sm);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 
-#mod-pmtros-tescxp .pmt-cfg-icon i { font-size: 18px; color: var(--pc-primary); }
+#mod-pmtros-tescxp .pmt-cfg-icon i { font-size: 18px; color: var(--pc-accent); }
 
 #mod-pmtros-tescxp .pmt-cfg-title {
   font-size: 22px; font-weight: 700; margin: 0;
@@ -265,7 +269,7 @@
 
 #mod-pmtros-tescxp .week-day.active {
   border-color: var(--pc-primary);
-  box-shadow: 0 4px 12px rgba(10,14,39,.12);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--pc-primary) 12%, transparent);
 }
 
 #mod-pmtros-tescxp .week-day.active .week-day-letter {
@@ -316,7 +320,7 @@
 #mod-pmtros-tescxp .form-input:focus,
 #mod-pmtros-tescxp .form-select:focus {
   border-color: var(--pc-primary);
-  box-shadow: 0 0 0 3px rgba(10,14,39,.07);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pc-primary) 7%, transparent);
 }
 
 #mod-pmtros-tescxp .form-input:focus-visible,
@@ -365,7 +369,7 @@
 #mod-pmtros-tescxp .pmt-hint {
   font-size: 12px; color: var(--dash-text-sub);
   background: var(--dash-blue-light);
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--dash-blue-border);
   border-radius: 8px;
   padding: 12px 14px;
   margin-top: 22px;
@@ -422,7 +426,7 @@
   display: inline-flex; align-items: center; gap: 8px;
 }
 
-#mod-pmtros-tescxp .pmt-btn-primary:not(:disabled):hover { background: var(--pc-secondary); }
+#mod-pmtros-tescxp .pmt-btn-primary:not(:disabled):hover { background: color-mix(in srgb, var(--pc-primary) 85%, black); }
 
 #mod-pmtros-tescxp .pmt-btn-primary:disabled {
   opacity: .5; cursor: not-allowed; background: #94a3b8;

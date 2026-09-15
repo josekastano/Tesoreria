@@ -135,9 +135,29 @@ function enviarBorradoLogico(idMotivo, mensajeError) {
     .catch(() => showToast('Error de conexión', 'error'));
 }
 
+// ============================================================
+// 5.1 MODAL DE CONFIRMACIÓN DE ELIMINACIÓN (estilo módulo Compras)
+// ============================================================
+let _confirmDeleteAction = null;
+
+function abrirConfirmEliminar(titulo, mensaje, accion) {
+    setText('confirm-eliminar-title', titulo);
+    setText('confirm-eliminar-body', mensaje);
+    _confirmDeleteAction = accion;
+    show('modal-confirm-eliminar');
+}
+
+function cerrarConfirmEliminar() {
+    hide('modal-confirm-eliminar');
+    _confirmDeleteAction = null;
+}
+
 window.eliminarMotivo = function(idMotivo, desMotivo) {
-    if (!confirm(`¿Desea eliminar el motivo "${desMotivo}"?\nDejará de ofrecerse al registrar un rechazo, pero los pagos históricos lo conservan.`)) return;
-    enviarBorradoLogico(idMotivo, 'Error al eliminar el motivo');
+    abrirConfirmEliminar(
+        `Eliminar "${desMotivo}"`,
+        `¿Desea eliminar el motivo "${desMotivo}"? Dejará de ofrecerse al registrar un rechazo, pero los pagos históricos lo conservan.`,
+        () => enviarBorradoLogico(idMotivo, 'Error al eliminar el motivo')
+    );
 };
 
 // ============================================================
@@ -165,6 +185,17 @@ function initMotivosModule() {
         .forEach(btn => btn.addEventListener('click', closeNewModal));
     document.querySelectorAll('.btn-close-edit-modal, .btn-cancel-edit-modal')
         .forEach(btn => btn.addEventListener('click', closeEditModal));
+
+    // ---------- MODAL: CONFIRMAR ELIMINACIÓN ----------
+    document.getElementById('confirm-eliminar-cancel-btn')?.addEventListener('click', cerrarConfirmEliminar);
+    document.getElementById('confirm-eliminar-ok-btn')?.addEventListener('click', () => {
+        const accion = _confirmDeleteAction;
+        cerrarConfirmEliminar();
+        if (typeof accion === 'function') accion();
+    });
+    document.getElementById('modal-confirm-eliminar')?.addEventListener('click', e => {
+        if (e.target.id === 'modal-confirm-eliminar') cerrarConfirmEliminar();
+    });
 
     document.getElementById('modal-new-motivo')?.addEventListener('click', e => {
         if (e.target.id === 'modal-new-motivo') closeNewModal();

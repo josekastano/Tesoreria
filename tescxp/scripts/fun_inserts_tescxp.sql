@@ -887,3 +887,150 @@ EXCEPTION
 END;
 $BODY$
 LANGUAGE PLPGSQL;
+
+--------------------------------------------------------------------------------------------------------------------------------------
+-- FUNCIÓN DE INSERT DE BANCOS
+--------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fun_insert_bancos (wid_banco     tab_bancos.id_banco%TYPE,
+                                              wnom_banco     tab_bancos.nom_banco%TYPE,
+                                              wind_estado    tab_bancos.ind_estado%TYPE) RETURNS BOOLEAN AS
+$BODY$
+BEGIN
+
+-- VALIDAR QUE EL ID DEL BANCO NO SEA NULO
+    IF wid_banco IS NULL THEN
+        RAISE EXCEPTION 'El ID del banco no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE EL NOMBRE DEL BANCO NO SEA NULO
+    IF wnom_banco IS NULL THEN
+        RAISE EXCEPTION 'El nombre del banco no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE EL INDICADOR DE ESTADO NO SEA NULO
+    IF wind_estado IS NULL THEN
+        RAISE EXCEPTION 'El indicador de estado no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE EL NOMBRE DEL BANCO NO SEA VACÍO
+    IF wnom_banco = '' THEN
+        RAISE EXCEPTION 'El nombre del banco no puede estar vacío.';
+    END IF;
+
+-- VALIDAR QUE EL BANCO NO EXISTA YA (PK)
+    IF EXISTS (SELECT 1 FROM tab_bancos WHERE id_banco = wid_banco) THEN
+        RAISE EXCEPTION 'El banco % ya existe.', wid_banco;
+    END IF;
+
+-- VALIDAR QUE EL ID DEL BANCO TENGA ENTRE 6 Y 10 CARACTERES
+    IF LENGTH(wid_banco) < 6 OR LENGTH(wid_banco) > 10 THEN
+        RAISE EXCEPTION 'El ID del banco debe tener entre 6 y 10 caracteres.';
+    END IF;
+
+-- VALIDAR QUE EL NOMBRE DEL BANCO TENGA ENTRE 4 Y 50 CARACTERES
+    IF LENGTH(wnom_banco) < 4 OR LENGTH(wnom_banco) > 50 THEN
+        RAISE EXCEPTION 'El nombre del banco debe tener entre 4 y 50 caracteres.';
+    END IF;
+
+-- SI TODO VA BIEN, SE INSERTA EN tab_bancos (ind_borrado QUEDA EN FALSE POR EL DEFAULT DE LA TABLA)
+    INSERT INTO tab_bancos (id_banco, nom_banco, ind_estado)
+    VALUES                 (wid_banco, wnom_banco, wind_estado);
+
+    RETURN TRUE;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'ERROR: %', public.fun_mensaje_error(SQLSTATE, SQLERRM);
+END;
+$BODY$
+LANGUAGE PLPGSQL;
+
+--------------------------------------------------------------------------------------------------------------------------------------
+-- FUNCIÓN DE INSERT DE PAGOS DE CUENTAS POR PAGAR
+--------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fun_insert_pagos_cxp (wid_factura            tab_pagos_cxp.id_factura%TYPE,
+                                                 wid_cuota              tab_pagos_cxp.id_cuota%TYPE,
+                                                 wid_archivo_plano      tab_pagos_cxp.id_archivo_plano%TYPE,
+                                                 wfec_pago              tab_pagos_cxp.fec_pago%TYPE,
+                                                 wval_pago              tab_pagos_cxp.val_pago%TYPE,
+                                                 wreferencia_bancaria   tab_pagos_cxp.referencia_bancaria%TYPE) RETURNS BOOLEAN AS
+$BODY$
+
+DECLARE wid_pago tab_pagos_cxp.id_pago%TYPE;
+
+BEGIN
+
+-- VALIDAR QUE EL ID DE LA FACTURA NO SEA NULO
+    IF wid_factura IS NULL THEN
+        RAISE EXCEPTION 'El ID de la factura no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE EL ID DE LA CUOTA NO SEA NULO
+    IF wid_cuota IS NULL THEN
+        RAISE EXCEPTION 'El ID de la cuota no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE LA FECHA DE PAGO NO SEA NULA
+    IF wfec_pago IS NULL THEN
+        RAISE EXCEPTION 'La fecha de pago no puede ser nula.';
+    END IF;
+
+-- VALIDAR QUE EL VALOR DEL PAGO NO SEA NULO
+    IF wval_pago IS NULL THEN
+        RAISE EXCEPTION 'El valor del pago no puede ser nulo.';
+    END IF;
+
+-- VALIDAR QUE LA CUOTA DE LA FACTURA EXISTA (FK)
+    IF NOT EXISTS (SELECT 1 FROM tab_cuotasxfactura WHERE id_factura = wid_factura AND id_cuota = wid_cuota) THEN
+        RAISE EXCEPTION 'La cuota % de la factura % no existe.', wid_cuota, wid_factura;
+    END IF;
+
+-- VALIDAR QUE LA CUOTA NO ESTÉ YA PAGADA
+    IF EXISTS (SELECT 1 FROM tab_cuotasxfactura WHERE id_factura = wid_factura AND id_cuota = wid_cuota AND ind_pagada = TRUE) THEN
+        RAISE EXCEPTION 'La cuota % de la factura % ya fue pagada.', wid_cuota, wid_factura;
+    END IF;
+
+-- VALIDAR QUE, SI VIENE ARCHIVO PLANO, LA LÍNEA EXISTA EN tab_det_archivo_plano (FK COMPUESTA)
+    IF wid_archivo_plano IS NOT NULL THEN
+        IF NOT EXISTS (SELECT 1 FROM tab_det_archivo_plano WHERE id_archivo_plano = wid_archivo_plano AND id_factura = wid_factura AND id_cuota = wid_cuota) THEN
+            RAISE EXCEPTION 'La cuota % de la factura % no está en el archivo plano %.', wid_cuota, wid_factura, wid_archivo_plano;
+        END IF;
+    END IF;
+
+-- VALIDAR QUE NO EXISTA YA UN PAGO PARA ESA MISMA LÍNEA
+    IF wid_archivo_plano IS NOT NULL THEN
+        IF EXISTS (SELECT 1 FROM tab_pagos_cxp WHERE id_archivo_plano = wid_archivo_plano AND id_factura = wid_factura AND id_cuota = wid_cuota) THEN
+            RAISE EXCEPTION 'La cuota % de la factura % ya tiene un pago registrado para el archivo plano %.', wid_cuota, wid_factura, wid_archivo_plano;
+        END IF;
+    END IF;
+
+-- VALIDAR QUE LA FECHA DE PAGO NO SEA FUTURA
+    IF wfec_pago > CURRENT_DATE THEN
+        RAISE EXCEPTION 'La fecha de pago no puede ser futura.';
+    END IF;
+
+-- VALIDAR QUE EL VALOR DEL PAGO ESTÉ ENTRE 1 Y 9999999999
+    IF wval_pago < 1 OR wval_pago > 9999999999 THEN
+        RAISE EXCEPTION 'El valor del pago debe estar entre 1 y 9.999.999.999.';
+    END IF;
+
+-- VALIDAR QUE LA REFERENCIA BANCARIA NO SUPERE 30 CARACTERES
+    IF wreferencia_bancaria IS NOT NULL AND LENGTH(wreferencia_bancaria) > 30 THEN
+        RAISE EXCEPTION 'La referencia bancaria no puede superar 30 caracteres.';
+    END IF;
+
+-- SI TODO VA BIEN, SE INSERTA EN tab_pagos_cxp (estado_pago QUEDA EN PENDIENTE POR EL DEFAULT DE LA TABLA)
+    SELECT COALESCE(MAX(id_pago), 0) + 1 INTO wid_pago
+    FROM tab_pagos_cxp;
+
+    INSERT INTO tab_pagos_cxp (id_pago, id_factura, id_cuota, id_archivo_plano, fec_pago, val_pago, referencia_bancaria)
+    VALUES                    (wid_pago, wid_factura, wid_cuota, wid_archivo_plano, wfec_pago, wval_pago, wreferencia_bancaria);
+
+    RETURN TRUE;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'ERROR: %', public.fun_mensaje_error(SQLSTATE, SQLERRM);
+END;
+$BODY$
+LANGUAGE PLPGSQL;

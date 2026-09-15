@@ -112,10 +112,34 @@ function clearFilters() {
 }
 
 // ============================================================
-// 5. ELIMINAR CUENTA (función global)
+// 5. MODAL DE CONFIRMACIÓN DE ELIMINACIÓN (estilo módulo Compras)
+// ============================================================
+let _confirmDeleteAction = null;
+
+function abrirConfirmEliminar(titulo, mensaje, accion) {
+    setText('confirm-eliminar-title', titulo);
+    setText('confirm-eliminar-body', mensaje);
+    _confirmDeleteAction = accion;
+    show('modal-confirm-eliminar');
+}
+
+function cerrarConfirmEliminar() {
+    hide('modal-confirm-eliminar');
+    _confirmDeleteAction = null;
+}
+
+// ============================================================
+// 5.1 ELIMINAR CUENTA (función global)
 // ============================================================
 window.eliminarCuenta = function(idProveedor, ctaProveedor, nombreProveedor) {
-    if (!confirm(`¿Desea eliminar la cuenta ${ctaProveedor} de ${nombreProveedor}?\nEsta acción es reversible desde la base de datos.`)) return;
+    abrirConfirmEliminar(
+        `Eliminar cuenta ${ctaProveedor}`,
+        `¿Desea eliminar la cuenta ${ctaProveedor} de ${nombreProveedor}? Esta acción es reversible desde la base de datos.`,
+        () => ejecutarEliminarCuenta(idProveedor, ctaProveedor)
+    );
+};
+
+function ejecutarEliminarCuenta(idProveedor, ctaProveedor) {
     const formData = new FormData();
     formData.append('btn_eliminar', '1');
     formData.append('hid_del_id_proveedor', idProveedor);
@@ -136,7 +160,7 @@ window.eliminarCuenta = function(idProveedor, ctaProveedor, nombreProveedor) {
         }
     })
     .catch(() => showToast('Error de conexión', 'error'));
-};
+}
 
 // ============================================================
 // 6. INICIALIZACIÓN GENERAL
@@ -169,6 +193,17 @@ function initBancoxprovModule() {
     });
     document.getElementById('modal-edit-cuenta')?.addEventListener('click', e => {
         if (e.target.id === 'modal-edit-cuenta') closeEditModal();
+    });
+
+    // ---------- MODAL: CONFIRMAR ELIMINACIÓN ----------
+    document.getElementById('confirm-eliminar-cancel-btn')?.addEventListener('click', cerrarConfirmEliminar);
+    document.getElementById('confirm-eliminar-ok-btn')?.addEventListener('click', () => {
+        const accion = _confirmDeleteAction;
+        cerrarConfirmEliminar();
+        if (typeof accion === 'function') accion();
+    });
+    document.getElementById('modal-confirm-eliminar')?.addEventListener('click', e => {
+        if (e.target.id === 'modal-confirm-eliminar') cerrarConfirmEliminar();
     });
 
     // ---------- SUBMIT: NUEVA CUENTA ----------

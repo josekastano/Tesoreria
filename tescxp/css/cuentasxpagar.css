@@ -9,7 +9,7 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-#mod-cuentasxpagar {
+:root {
     --dash-bg:           #ffffff;
     --dash-card:         #ffffff;
     --dash-border:       #e9edf2;
@@ -19,8 +19,10 @@
     --dash-text-body:    #1e293b;
     --dash-text-sub:     #475569;
     --dash-text-muted:   #94a3b8;
-    --dash-blue:         #3b82f6;
-    --dash-blue-light:   #eff6ff;
+    --dash-blue:         var(--color-primary, #3b82f6);
+    --dash-blue-light:   color-mix(in srgb, var(--dash-blue) 12%, white);
+    --dash-blue-dark:    color-mix(in srgb, var(--dash-blue) 80%, black);
+    --dash-blue-border:  color-mix(in srgb, var(--dash-blue) 30%, white);
     --dash-green-dark:   #059669;
     --dash-green-light:  #ecfdf5;
     --dash-red:          #ef4444;
@@ -82,9 +84,9 @@
 }
 
 #mod-cuentasxpagar #btn-add-factura:hover {
-    background: #2563eb;
+    background: var(--dash-blue-dark);
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(59,130,246,0.2);
+    box-shadow: 0 4px 8px color-mix(in srgb, var(--dash-blue) 20%, transparent);
 }
 
 /* ---- STATS ---- */
@@ -189,7 +191,7 @@
 
 #mod-cuentasxpagar .search-input:focus {
     border-color: var(--dash-blue);
-    box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--dash-blue) 10%, transparent);
 }
 
 #mod-cuentasxpagar .filter-toggle-group { display: flex; gap: 6px; }
@@ -337,16 +339,26 @@
 }
 
 #mod-cuentasxpagar .btn-primary,
-.modal-footer .btn-primary { background: #3b82f6; color: white; }
+.modal-footer .btn-primary { background: var(--dash-blue); color: white; }
 
 #mod-cuentasxpagar .btn-primary:hover,
-.modal-footer .btn-primary:hover { background: #2563eb; }
+.modal-footer .btn-primary:hover { background: var(--dash-blue-dark); }
+
+/* Dentro de un modal "verde" (crear), el boton principal debe coordinar
+   con el color primario (header, pestana activa y foco de campos ya usan
+   ese mismo color), en vez del azul que corresponde a los modales "editar". */
+.modal-header.green ~ .modal-footer .btn-primary {
+    background: var(--color-primary, #2d8653);
+}
+.modal-header.green ~ .modal-footer .btn-primary:hover {
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 80%, black);
+}
 
 #mod-cuentasxpagar .btn-success,
-.modal-footer .btn-success { background: #2d8653; color: white; }
+.modal-footer .btn-success { background: var(--color-primary, #2d8653); color: white; }
 
 #mod-cuentasxpagar .btn-success:hover,
-.modal-footer .btn-success:hover { background: #1e5c3a; }
+.modal-footer .btn-success:hover { background: color-mix(in srgb, var(--color-primary, #2d8653) 68%, black); }
 
 #mod-cuentasxpagar .btn-secondary,
 .modal-footer .btn-secondary,
@@ -396,8 +408,8 @@
     flex-shrink: 0;
 }
 
-.modal-header.green { background: #2d8653; color: white; }
-.modal-header.blue  { background: #3b82f6; color: white; }
+.modal-header.green { background: var(--color-primary, #2d8653); color: white; }
+.modal-header.blue  { background: var(--dash-blue); color: white; }
 
 .modal-header h2 {
     font-size: 18px; font-weight: 700; margin: 0;
@@ -459,7 +471,7 @@
     width: 100%;
     padding: 11px 16px;
     height: 44px;
-    border: 1.5px solid #b2d8c4;
+    border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white);
     border-radius: 50px;
     font-family: 'DM Sans', system-ui, sans-serif;
     font-size: 13px;
@@ -471,14 +483,14 @@
 }
 
 .form-input:hover {
-    background: #edf7f2;
-    border-color: #7ecba4;
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: color-mix(in srgb, var(--color-primary, #2d8653) 52%, white);
 }
 
 .form-input:focus {
-    background: #edf7f2;
-    border-color: #2d8653;
-    box-shadow: 0 0 0 3px rgba(45, 134, 83, 0.12);
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: var(--color-primary, #2d8653);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #2d8653) 12%, transparent);
 }
 
 .form-input::placeholder { color: #b0b8c9; }
@@ -494,7 +506,7 @@
     width: 100%;
     height: 44px;
     padding: 11px 16px;
-    border: 1.5px solid #b2d8c4;
+    border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white);
     border-radius: 50px;
     font-family: 'DM Sans', system-ui, sans-serif;
     font-size: 13px;
@@ -508,14 +520,14 @@
 }
 
 .form-select:hover {
-    background: #edf7f2;
-    border-color: #7ecba4;
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: color-mix(in srgb, var(--color-primary, #2d8653) 52%, white);
 }
 
 .form-select:focus {
-    background: #edf7f2;
-    border-color: #2d8653;
-    box-shadow: 0 0 0 3px rgba(45, 134, 83, 0.12);
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: var(--color-primary, #2d8653);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #2d8653) 12%, transparent);
 }
 
 .field-error {
@@ -574,7 +586,7 @@
     font-family: 'DM Sans', system-ui, sans-serif;
 }
 
-.detail-subheading i { color: #2d8653; }
+.detail-subheading i { color: var(--color-primary, #2d8653); }
 
 /* ---- CUOTAS (lista dentro del modal de detalle) ---- */
 .cuota-row {
@@ -628,8 +640,8 @@
 /* ---- NOTA DE PREVISUALIZACIÓN DE CUOTAS ---- */
 .config-hint {
     font-size: 12px; color: #475569;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
+    background: var(--dash-blue-light);
+    border: 1px solid var(--dash-blue-border);
     border-radius: 8px;
     padding: 12px 14px;
     margin: 4px 0 18px;
@@ -638,7 +650,7 @@
     text-wrap: pretty;
 }
 
-.config-hint i { color: #3b82f6; font-size: 14px; margin-top: 1px; flex-shrink: 0; }
+.config-hint i { color: var(--dash-blue); font-size: 14px; margin-top: 1px; flex-shrink: 0; }
 
 /* ============================================
    ORDEN DE COMPRA (elección + selector)
@@ -664,12 +676,12 @@
 
 /* La opción marcada se resalta con el borde, no con un relleno fuerte */
 .oc-choice-opt:has(input:checked) {
-    border-color: #3b82f6;
-    background: #eff6ff;
-    color: #1d4ed8;
+    border-color: var(--dash-blue);
+    background: var(--dash-blue-light);
+    color: var(--dash-blue-dark);
 }
 
-.oc-choice-opt input { accent-color: #3b82f6; width: 16px; height: 16px; flex-shrink: 0; }
+.oc-choice-opt input { accent-color: var(--dash-blue); width: 16px; height: 16px; flex-shrink: 0; }
 
 /* ---- Resumen de la orden elegida (en el formulario) ---- */
 .oc-selected {
@@ -681,7 +693,7 @@
     background: #f9fafb;
 }
 
-.oc-selected.sel { border-color: #3b82f6; background: #eff6ff; }
+.oc-selected.sel { border-color: var(--dash-blue); background: var(--dash-blue-light); }
 
 .oc-selected-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 
@@ -692,7 +704,7 @@
     color: #1e293b; line-height: 1.35;
 }
 
-.oc-selected.sel .oc-selected-num { color: #1d4ed8; }
+.oc-selected.sel .oc-selected-num { color: var(--dash-blue-dark); }
 
 .oc-selected-meta {
     font-size: 11.5px; font-weight: 600;
@@ -722,7 +734,7 @@
 .oc-filter-bar .search-input {
     width: 100%; height: 40px;
     padding: 10px 16px 10px 38px;
-    border: 1.5px solid #b2d8c4;
+    border: 1.5px solid color-mix(in srgb, var(--color-primary, #2d8653) 35%, white);
     border-radius: 50px;
     background: #ffffff;
     font-family: inherit;
@@ -738,7 +750,7 @@
 .oc-filter-bar .search-input:focus {
     outline: none;
     border-color: var(--dash-blue);
-    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--dash-blue) 12%, transparent);
 }
 
 .oc-filter-bar > .form-select {
@@ -809,8 +821,8 @@
 .oc-toggle:hover { border-color: #cbd5e1; background: #f9fafb; }
 
 .oc-toggle.active {
-    background: #eff6ff; border-color: #3b82f6;
-    color: #1d4ed8; font-weight: 700;
+    background: var(--dash-blue-light); border-color: var(--dash-blue);
+    color: var(--dash-blue-dark); font-weight: 700;
 }
 
 /* ---- Lista de órdenes disponibles ---- */
@@ -836,9 +848,9 @@
 }
 
 .oc-row:hover { background: #f9fafb; }
-.oc-row.sel { background: #eff6ff; }
+.oc-row.sel { background: var(--dash-blue-light); }
 
-.oc-row input { accent-color: #3b82f6; width: 15px; height: 15px; flex-shrink: 0; }
+.oc-row input { accent-color: var(--dash-blue); width: 15px; height: 15px; flex-shrink: 0; }
 
 .oc-row-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 
@@ -887,7 +899,7 @@
 .oc-tag {
     display: inline-block;
     background: var(--dash-blue-light);
-    color: #1d4ed8;
+    color: var(--dash-blue-dark);
     border-radius: 6px;
     padding: 3px 8px;
     font-size: 11.5px; font-weight: 700;
