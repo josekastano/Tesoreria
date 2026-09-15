@@ -332,6 +332,17 @@
 #mod-pmtros-tescxp .form-input::placeholder { color: #b0b8c9; font-weight: 400; }
 #mod-pmtros-tescxp .form-input:disabled { background: #f9fafb; color: var(--dash-text-muted); }
 
+/* Quita las flechas de incremento/decremento de los campos numéricos */
+#mod-pmtros-tescxp .form-input[type="number"]::-webkit-outer-spin-button,
+#mod-pmtros-tescxp .form-input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+#mod-pmtros-tescxp .form-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 /* ---------- CAMPO DE MONEDA ---------- */
 #mod-pmtros-tescxp .input-money { display: flex; align-items: stretch; max-width: 280px; }
 

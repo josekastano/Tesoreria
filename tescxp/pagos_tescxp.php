@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 // referencia_bancaria VARCHAR(30)
-                if (strlen($ref) > 30) {
+                if (mb_strlen($ref) > 30) {
                     $omitidas[] = "{$etiqueta}: la referencia bancaria supera 30 caracteres.";
                     continue;
                 }
@@ -159,49 +159,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     continue;
                 }
 
-                // ---- CREAR EL PAGO — el valor sale de tab_det_archivo_plano, no del CSV ----
-                $ins_pago_cxp->execute([
-                    ':wid_factura'          => (int)$id_factura,
-                    ':wid_cuota'            => (int)$id_cuota,
-                    ':wid_archivo_plano'    => (int)$id_archivo,
-                    ':wfec_pago'            => $fec_pago,
-                    ':wval_pago'            => (float)$linea['val_a_pagar'],
-                    ':wreferencia_bancaria' => $ref !== '' ? $ref : null,
-                ]);
-                // >>> SUPUESTO: fun_insert_pagos_cxp devuelve el id_pago recién
-                // creado (mismo patrón que el resto de funciones fun_insert_* del
-                // proyecto). Si tu función no retorna el id, hay que reemplazar
-                // esta línea por una consulta que lo busque por los datos recién
-                // insertados.
-                $id_pago_nuevo = (int)$ins_pago_cxp->fetchColumn();
+                // ---- Cada fila en su propio SAVEPOINT: si algo falla aquí (incluida
+                // cualquier validación de las funciones de la base), solo se revierte
+                // esta fila, no todo el lote, y el motivo queda visible en "omitidas".
+                $pdo->exec('SAVEPOINT sp_fila');
+                try {
+                    // ---- CREAR EL PAGO — el valor sale de tab_det_archivo_plano, no del CSV ----
+                    $ins_pago_cxp->execute([
+                        ':wid_factura'          => (int)$id_factura,
+                        ':wid_cuota'            => (int)$id_cuota,
+                        ':wid_archivo_plano'    => (int)$id_archivo,
+                        ':wfec_pago'            => $fec_pago,
+                        ':wval_pago'            => (float)$linea['val_a_pagar'],
+                        ':wreferencia_bancaria' => $ref !== '' ? $ref : null,
+                    ]);
+                    // fun_insert_pagos_cxp devuelve BOOLEAN (no el id_pago), así que
+                    // el id recién creado se recupera con la misma consulta que ya
+                    // usamos para detectar duplicados.
+                    $check_pago_de_linea->execute([
+                        ':wid_archivo_plano' => (int)$id_archivo,
+                        ':wid_factura'       => (int)$id_factura,
+                        ':wid_cuota'         => (int)$id_cuota,
+                    ]);
+                    $fila_creada   = $check_pago_de_linea->fetch(PDO::FETCH_ASSOC);
+                    $id_pago_nuevo = (int)($fila_creada['id_pago'] ?? 0);
 
-                // ---- FIJAR EL ESTADO FINAL QUE TRAJO EL BANCO ----
-                $upd_estado_pago_cxp->execute([
-                    ':wid_pago'             => $id_pago_nuevo,
-                    ':westado_pago'         => $estado,
-                    ':wreferencia_bancaria' => $ref !== '' ? $ref : null,
-                    ':wid_motivo_rechazo'   => $id_motivo,
-                ]);
-
-                // ---- SI QUEDÓ APROBADO: cuota pagada, saldo recalculado, cronograma cerrado ----
-                if ($estado === 'APROBADO') {
-                    $mark_cuota_pagada->execute([
-                        ':wid_factura' => (int)$id_factura,
-                        ':wid_cuota'   => (int)$id_cuota,
-                    ]);
-                    $recalc_saldo_factura->execute([
-                        ':wid_factura' => (int)$id_factura,
-                    ]);
-                    $get_cronograma_de_cuota->execute([
-                        ':wid_factura' => (int)$id_factura,
-                        ':wid_cuota'   => (int)$id_cuota,
-                    ]);
-                    $cronograma = $get_cronograma_de_cuota->fetch(PDO::FETCH_ASSOC);
-                    if ($cronograma) {
-                        $cerrar_cronograma_si_pagado->execute([
-                            ':wid_cronograma' => (int)$cronograma['id_cronograma'],
-                        ]);
+                    if ($id_pago_nuevo <= 0) {
+                        throw new Exception('no se pudo recuperar el id_pago recién creado.');
                     }
+
+                    // ---- FIJAR EL ESTADO FINAL QUE TRAJO EL BANCO ----
+                    $upd_estado_pago_cxp->execute([
+                        ':wid_pago'             => $id_pago_nuevo,
+                        ':westado_pago'         => $estado,
+                        ':wreferencia_bancaria' => $ref !== '' ? $ref : null,
+                        ':wid_motivo_rechazo'   => $id_motivo,
+                    ]);
+
+                    // ---- SI QUEDÓ APROBADO: cuota pagada, saldo recalculado, cronograma cerrado ----
+                    if ($estado === 'APROBADO') {
+                        $mark_cuota_pagada->execute([
+                            ':wid_factura' => (int)$id_factura,
+                            ':wid_cuota'   => (int)$id_cuota,
+                        ]);
+                        $recalc_saldo_factura->execute([
+                            ':wid_factura' => (int)$id_factura,
+                        ]);
+                        $get_cronograma_de_cuota->execute([
+                            ':wid_factura' => (int)$id_factura,
+                            ':wid_cuota'   => (int)$id_cuota,
+                        ]);
+                        $cronograma = $get_cronograma_de_cuota->fetch(PDO::FETCH_ASSOC);
+                        if ($cronograma) {
+                            $cerrar_cronograma_si_pagado->execute([
+                                ':wid_cronograma' => (int)$cronograma['id_cronograma'],
+                            ]);
+                        }
+                    }
+
+                    $pdo->exec('RELEASE SAVEPOINT sp_fila');
+                } catch (Exception $e) {
+                    $pdo->exec('ROLLBACK TO SAVEPOINT sp_fila');
+                    $omitidas[] = "{$etiqueta}: " . $e->getMessage();
+                    continue;
                 }
 
                 $aplicadas++;

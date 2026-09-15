@@ -375,7 +375,10 @@ async function aplicarImportacion() {
             closeImportModal();
             location.reload();
         } else {
-            showToast(result.message || 'No se pudo aplicar la importación', 'error');
+            const detalle = Array.isArray(result.omitidas) && result.omitidas.length
+                ? ' — ' + result.omitidas.slice(0, 3).join(' | ')
+                : '';
+            showToast((result.message || 'No se pudo aplicar la importación') + detalle, 'error');
             btn.disabled = false;
         }
     } catch (err) {
