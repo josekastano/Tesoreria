@@ -651,6 +651,128 @@
 .config-hint i { color: var(--dash-blue); font-size: 14px; margin-top: 1px; flex-shrink: 0; }
 
 /* ============================================
+   IMPORTAR RESPUESTA DEL BANCO (resumen y filas)
+   Estas clases las genera pagos_tescxp.js al leer
+   el CSV; antes no tenían ninguna regla, por eso
+   el modal se veía sin cajas ni color.
+   ============================================ */
+.import-resumen {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 4px 0 20px;
+}
+
+.import-resumen-item {
+    background: #f9fafb;
+    border: 1px solid #e9edf2;
+    border-radius: 14px;
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+}
+
+.import-resumen-item.ok {
+    background: var(--dash-green-light, #ecfdf5);
+    border-color: color-mix(in srgb, var(--dash-green-dark, #059669) 25%, white);
+}
+
+.import-resumen-item.bad {
+    background: var(--dash-red-light, #fef2f2);
+    border-color: color-mix(in srgb, var(--dash-red, #ef4444) 25%, white);
+}
+
+.import-resumen-label {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--dash-text-muted, #94a3b8);
+}
+
+.import-resumen-item.ok  .import-resumen-label { color: var(--dash-green-dark, #059669); }
+.import-resumen-item.bad .import-resumen-label { color: #b91c1c; }
+
+.import-resumen-valor {
+    font-size: 24px; font-weight: 800;
+    color: var(--dash-text-head, #0a0c1a);
+    line-height: 1.1;
+}
+
+.import-resumen-item.ok  .import-resumen-valor { color: var(--dash-green-dark, #059669); }
+.import-resumen-item.bad .import-resumen-valor { color: #b91c1c; }
+
+/* ---- Contenedor con scroll de las filas del archivo ---- */
+.import-list {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #e9edf2;
+    border-radius: 16px;
+    padding: 8px;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.import-vacio {
+    text-align: center;
+    padding: 28px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dash-text-muted, #94a3b8);
+}
+
+/* ---- Cada fila leída del archivo ---- */
+.import-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    transition: background 0.15s;
+}
+
+.import-row.valida:hover   { background: #f9fafb; }
+.import-row.invalida       { background: color-mix(in srgb, var(--dash-red-light, #fef2f2) 55%, white); }
+.import-row.invalida:hover { background: var(--dash-red-light, #fef2f2); }
+
+.import-row-icon {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+.import-row.valida   .import-row-icon { background: var(--dash-green-light, #ecfdf5); color: var(--dash-green-dark, #059669); }
+.import-row.invalida .import-row-icon { background: #fecaca; color: #b91c1c; }
+
+.import-row-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.import-row-pago {
+    font-size: 12.5px; font-weight: 700;
+    color: #1e293b; line-height: 1.35;
+}
+
+.import-row-meta {
+    font-size: 11px;
+    color: #94a3b8;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.import-row.invalida .import-row-pago { color: #7f1d1d; }
+.import-row.invalida .import-row-meta { color: #b91c1c; font-weight: 600; }
+
+/* ============================================
    LISTA DE PROVEEDORES / CUENTAS (modal nuevo)
    ============================================ */
 .cuota-picker-list {
@@ -895,4 +1017,6 @@
     #mod-historial .stats-grid { grid-template-columns: 1fr; }
     .modal-box { width: 95vw; max-width: 95vw; }
     .cuota-row { grid-template-columns: 1fr auto; row-gap: 8px; }
+    .import-resumen-valor { font-size: 19px; }
+    .import-resumen-label { font-size: 9px; }
 }

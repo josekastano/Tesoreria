@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 // referencia_bancaria VARCHAR(30)
-                if (mb_strlen($ref) > 30) {
+                if (strlen($ref) > 30) {
                     $omitidas[] = "{$etiqueta}: la referencia bancaria supera 30 caracteres.";
                     continue;
                 }
