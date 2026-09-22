@@ -336,3 +336,37 @@ EXECUTE FUNCTION fun_actualizar_saldo_factura();
 -- manual e independiente (sin pasar por un cronograma), el trigger 9.2 ya
 -- lo soporta automáticamente, porque escucha cambios directos sobre
 -- tab_cuotasxfactura.ind_pagada, sin importar quién los origine.
+
+-- =========================================================================
+-- 10. ACTUALIZAR SALDO PROVEEDOR: Saldo proveedor = saldo proveedor - valor del saldo de la factura
+-- =========================================================================
+
+-- 10 Cuando una cuota pasa a pagada (ind_pagada: FALSE -> TRUE), descontar
+--     su valor del saldo de la factura, y si el saldo llega a 0, marcar la
+--     factura como pagada (ind_estado = TRUE).
+
+CREATE OR REPLACE FUNCTION fun_actualizar_saldo_proveedor()
+RETURNS TRIGGER AS
+$BODY$
+DECLARE
+    wresta DECIMAL(10,0);
+BEGIN
+
+    -- Determinar cuánto disminuyó el saldo de la cuenta
+    wresta := OLD.val_saldo - NEW.val_saldo;
+
+    -- Actualizar la deuda del proveedor
+    UPDATE tab_proveedores
+    SET    val_saldo_deuda = val_saldo_deuda - wresta
+    WHERE  id_proveedor = NEW.id_proveedor;
+
+    RETURN NEW;
+
+END;
+$BODY$
+LANGUAGE PLPGSQL;
+
+CREATE TRIGGER trg_actualizar_saldo_proveedor
+AFTER UPDATE OF val_saldo ON tab_cuentasxpagar
+FOR EACH ROW
+EXECUTE FUNCTION fun_actualizar_saldo_proveedor();
