@@ -22,6 +22,7 @@
     --dash-blue:         var(--color-primary, #3b82f6);
     --dash-blue-light:   color-mix(in srgb, var(--dash-blue) 12%, white);
     --dash-blue-dark:    color-mix(in srgb, var(--dash-blue) 80%, black);
+    --dash-blue-border:  color-mix(in srgb, var(--dash-blue) 30%, white);
     --dash-green-dark:   #059669;
     --dash-green-light:  #ecfdf5;
     --dash-red:          #ef4444;
@@ -606,6 +607,224 @@
     display: flex; align-items: center; gap: 8px;
     font-family: 'DM Sans', system-ui, sans-serif;
 }
+
+/* ============================================
+   CAMPO DE FECHA (abre el calendario)
+   Mismo estilo que el calendario de Cronograma de Pagos, pero aquí
+   se puede elegir cualquier fecha: no hay días bloqueados por días
+   de pago ni festivos (solo el min/max que ya tenía el campo).
+   Reemplaza al <input type="date">: es un botón con el mismo aspecto
+   de .form-input que muestra la fecha elegida.
+   ============================================ */
+.dp-trigger {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.dp-trigger .dp-trigger-texto {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.dp-trigger .dp-trigger-texto.vacio { color: #b0b8c9; }
+.dp-trigger i { color: #94a3b8; font-size: 14px; flex-shrink: 0; transition: color 0.2s; }
+
+/* Campo con el calendario abierto: mismo aspecto que un campo con foco */
+.dp-trigger.abierto {
+    background: color-mix(in srgb, var(--color-primary, #2d8653) 8%, white);
+    border-color: var(--color-primary, #2d8653);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #2d8653) 12%, transparent);
+}
+
+.dp-trigger.abierto i { color: var(--color-primary, #2d8653); }
+
+/* ============================================
+   CALENDARIO FLOTANTE
+   Va con position:fixed (lo ubica el JS) para que el scroll
+   del modal no lo recorte.
+   ============================================ */
+.dp-pop {
+    position: fixed;
+    z-index: 1050;               /* por encima de .modal-overlay (1000) */
+    width: 300px;
+    padding: 14px;
+    background: var(--dash-card);
+    border: 1px solid var(--dash-border);
+    border-radius: var(--dash-radius);
+    box-shadow: 0 16px 36px -8px rgba(15, 23, 42, 0.22);
+    font-family: var(--dash-font);
+    color: var(--dash-text-body);
+    animation: fadeIn 0.15s ease;
+}
+
+.dp-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.dp-head strong {
+    font-size: 14px; font-weight: 800;
+    color: var(--dash-text-head);
+}
+
+.dp-nav-grupo { display: flex; align-items: center; gap: 2px; }
+
+.dp-nav {
+    width: 28px; height: 28px;
+    border: none; border-radius: 50%;
+    background: transparent;
+    color: var(--dash-text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.dp-nav:hover:not(:disabled) { color: var(--dash-blue); background: var(--dash-blue-light); }
+.dp-nav:disabled { opacity: 0.35; cursor: default; }
+
+.dp-semana,
+.dp-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    justify-items: center;
+}
+
+.dp-semana { margin-bottom: 4px; }
+
+.dp-semana span {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--dash-text-muted);
+}
+
+.dp-grid { row-gap: 3px; }
+
+.dp-dia {
+    position: relative;
+    width: 34px; height: 34px;
+    border: 1.5px solid transparent;
+    border-radius: 50%;
+    background: transparent;
+    font-family: var(--dash-font);
+    font-size: 12.5px; font-weight: 600;
+    color: var(--dash-text-body);
+    padding: 0;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.dp-dia.vacio { cursor: default; }
+
+/* Cualquier día se puede elegir: se resalta al pasar el mouse */
+.dp-dia:not(.vacio):not(:disabled):hover {
+    background: var(--dash-blue-light);
+    border-color: var(--dash-blue);
+    color: var(--dash-blue-dark);
+}
+
+/* Fuera del min/max del campo (p. ej. emisión posterior a hoy) */
+.dp-dia.fuera {
+    color: #cbd5e1;
+    cursor: not-allowed;
+}
+
+.dp-dia.hoy { box-shadow: inset 0 0 0 1.5px var(--dash-text-muted); }
+
+/* Fecha elegida (va de último para ganarle a los demás estados) */
+.dp-dia.sel,
+.dp-dia.sel:not(.vacio):not(:disabled):hover {
+    background: var(--dash-blue);
+    border-color: var(--dash-blue);
+    color: #ffffff;
+    font-weight: 800;
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--dash-blue) 35%, transparent);
+}
+
+/* Botones Hoy / Borrar */
+.dp-acciones {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--dash-border);
+}
+
+.dp-accion {
+    border: none;
+    border-radius: 30px;
+    padding: 6px 14px;
+    background: var(--dash-blue-light);
+    color: var(--dash-blue-dark);
+    font-family: var(--dash-font);
+    font-size: 12px; font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.dp-accion:hover:not(:disabled) { background: color-mix(in srgb, var(--dash-blue) 20%, white); }
+.dp-accion:disabled { opacity: 0.4; cursor: default; }
+
+.dp-accion.secundaria { background: transparent; color: var(--dash-text-sub); }
+.dp-accion.secundaria:hover:not(:disabled) { background: #f1f5f9; color: var(--dash-rose); }
+
+/* Festivo ya registrado: se resalta en rosa (como en Cronograma),
+   pero NO se bloquea — se puede elegir igual */
+.dp-dia.festivo {
+    background: var(--dash-rose-light);
+    border-color: color-mix(in srgb, var(--dash-rose) 30%, white);
+    color: var(--dash-rose);
+    font-weight: 700;
+}
+
+.dp-dia.festivo::after {
+    content: '';
+    position: absolute;
+    left: 50%; bottom: 4px;
+    width: 4px; height: 4px;
+    margin-left: -2px;
+    border-radius: 50%;
+    background: var(--dash-rose);
+}
+
+.dp-dia.festivo:not(:disabled):hover {
+    background: color-mix(in srgb, var(--dash-rose) 18%, white);
+    border-color: var(--dash-rose);
+    color: var(--dash-rose);
+}
+
+.dp-dia.sel::after { background: #ffffff; }
+
+/* Nombre del festivo al pasar el mouse */
+.dp-info {
+    min-height: 16px;
+    margin-top: 8px;
+    font-size: 11px; font-weight: 700;
+    color: var(--dash-rose);
+    text-align: center;
+}
+
+.dp-leyenda {
+    display: flex; flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 8px; padding-top: 10px;
+    border-top: 1px solid var(--dash-border);
+    font-size: 10.5px; font-weight: 600;
+    color: var(--dash-text-sub);
+}
+
+.dp-leyenda span { display: inline-flex; align-items: center; gap: 5px; }
+
+.dp-leyenda i {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+}
+
+.dp-leyenda .l-festivo { background: var(--dash-rose-light); border: 1px solid color-mix(in srgb, var(--dash-rose) 30%, white); }
+.dp-leyenda .l-hoy     { background: #ffffff; border: 1.5px solid var(--dash-text-muted); }
+
+/* La leyenda ya separa el calendario de los botones */
+.dp-leyenda + .dp-acciones { margin-top: 8px; }
 
 /* ---- TOAST ---- */
 #toast {

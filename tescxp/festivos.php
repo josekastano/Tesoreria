@@ -276,7 +276,11 @@ ob_start();
                 <input type="hidden" name="btn_nuevo" value="1">
                 <div class="form-field">
                     <label class="form-label">Fecha <span class="required">*</span></label>
-                    <input type="date" id="new-festivo-fecha" name="txt_fecha" class="form-input" min="<?= date('Y-m-d') ?>">
+                    <input type="hidden" id="new-festivo-fecha" name="txt_fecha" value="">
+                    <button type="button" class="form-input dp-trigger" id="new-festivo-fecha-btn" data-target="new-festivo-fecha" data-min="<?= date('Y-m-d') ?>">
+                        <span class="dp-trigger-texto vacio">Seleccione una fecha</span>
+                        <i class="fas fa-calendar-alt"></i>
+                    </button>
                     <span class="field-error" id="err-new-fecha"></span>
                 </div>
                 <div class="form-field">
@@ -309,7 +313,11 @@ ob_start();
                 <input type="hidden" name="hid_edit_id" id="edit-festivo-id" value="">
                 <div class="form-field">
                     <label class="form-label">Fecha <span class="required">*</span></label>
-                    <input type="date" id="edit-festivo-fecha" name="txt_edit_fecha" class="form-input" min="<?= date('Y-m-d') ?>">
+                    <input type="hidden" id="edit-festivo-fecha" name="txt_edit_fecha" value="">
+                    <button type="button" class="form-input dp-trigger" id="edit-festivo-fecha-btn" data-target="edit-festivo-fecha" data-min="<?= date('Y-m-d') ?>">
+                        <span class="dp-trigger-texto vacio">Seleccione una fecha</span>
+                        <i class="fas fa-calendar-alt"></i>
+                    </button>
                     <span class="field-error" id="err-edit-fecha"></span>
                 </div>
                 <div class="form-field">
@@ -336,6 +344,35 @@ ob_start();
             <button type="button" class="btn-cancelar" id="confirm-eliminar-cancel-btn">Cancelar</button>
             <button type="button" class="btn-eliminar" id="confirm-eliminar-ok-btn">Sí, eliminar</button>
         </div>
+    </div>
+</div>
+
+<!-- CALENDARIO FLOTANTE PARA ELEGIR FECHAS (mismo estilo que Cronograma de Pagos;
+     aquí se puede elegir cualquier fecha — lo arma festivos.js) -->
+<div id="dp-pop" class="dp-pop hidden" role="dialog" aria-label="Seleccionar fecha">
+    <div class="dp-head">
+        <div class="dp-nav-grupo">
+            <button type="button" class="dp-nav" id="dp-prev-anio" aria-label="Año anterior" title="Año anterior"><i class="fas fa-angles-left"></i></button>
+            <button type="button" class="dp-nav" id="dp-prev" aria-label="Mes anterior" title="Mes anterior"><i class="fas fa-chevron-left"></i></button>
+        </div>
+        <strong id="dp-titulo"></strong>
+        <div class="dp-nav-grupo">
+            <button type="button" class="dp-nav" id="dp-next" aria-label="Mes siguiente" title="Mes siguiente"><i class="fas fa-chevron-right"></i></button>
+            <button type="button" class="dp-nav" id="dp-next-anio" aria-label="Año siguiente" title="Año siguiente"><i class="fas fa-angles-right"></i></button>
+        </div>
+    </div>
+    <div class="dp-semana">
+        <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+    </div>
+    <div class="dp-grid" id="dp-grid"></div>
+    <div class="dp-info" id="dp-info"></div>
+    <div class="dp-leyenda">
+        <span><i class="l-festivo"></i>Festivo ya registrado</span>
+        <span><i class="l-hoy"></i>Hoy</span>
+    </div>
+    <div class="dp-acciones">
+        <button type="button" class="dp-accion" id="dp-hoy">Hoy</button>
+        <button type="button" class="dp-accion secundaria" id="dp-borrar">Borrar</button>
     </div>
 </div>
 

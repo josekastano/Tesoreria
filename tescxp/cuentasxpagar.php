@@ -393,7 +393,11 @@ ob_start();
                 <div class="form-grid">
                     <div class="form-field">
                         <label class="form-label">Fecha de Emisión <span class="required">*</span></label>
-                        <input type="date" id="new-fec-emision" name="txt_fec_emision" class="form-input" max="<?= date('Y-m-d') ?>">
+                        <input type="hidden" id="new-fec-emision" name="txt_fec_emision" value="">
+                        <button type="button" class="form-input dp-trigger" id="new-fec-emision-btn" data-target="new-fec-emision" data-max="<?= date('Y-m-d') ?>">
+                            <span class="dp-trigger-texto vacio">Seleccione una fecha</span>
+                            <i class="fas fa-calendar-alt"></i>
+                        </button>
                         <span class="field-error" id="err-new-emision"></span>
                     </div>
                     <div class="form-field">
@@ -486,12 +490,20 @@ ob_start();
 
             <div class="oc-filter-bar oc-filter-bar-sec">
                 <div class="oc-filter-field">
-                    <label for="oc-fec-desde">Emitidas desde</label>
-                    <input type="date" id="oc-fec-desde" class="form-input">
+                    <label for="oc-fec-desde-btn">Emitidas desde</label>
+                    <input type="hidden" id="oc-fec-desde" value="">
+                    <button type="button" class="form-input dp-trigger" id="oc-fec-desde-btn" data-target="oc-fec-desde" data-formato="corto" data-placeholder="Cualquier fecha">
+                        <span class="dp-trigger-texto vacio">Cualquier fecha</span>
+                        <i class="fas fa-calendar-alt"></i>
+                    </button>
                 </div>
                 <div class="oc-filter-field">
-                    <label for="oc-fec-hasta">Hasta</label>
-                    <input type="date" id="oc-fec-hasta" class="form-input">
+                    <label for="oc-fec-hasta-btn">Hasta</label>
+                    <input type="hidden" id="oc-fec-hasta" value="">
+                    <button type="button" class="form-input dp-trigger" id="oc-fec-hasta-btn" data-target="oc-fec-hasta" data-formato="corto" data-placeholder="Cualquier fecha">
+                        <span class="dp-trigger-texto vacio">Cualquier fecha</span>
+                        <i class="fas fa-calendar-alt"></i>
+                    </button>
                 </div>
                 <div class="filter-toggle-group">
                     <button type="button" class="oc-toggle active" data-met="all">Todas</button>
@@ -530,6 +542,30 @@ ob_start();
         <div class="modal-footer">
             <button class="btn btn-secondary" id="close-detail-btn">Cerrar</button>
         </div>
+    </div>
+</div>
+
+<!-- CALENDARIO FLOTANTE PARA ELEGIR FECHAS (mismo estilo que Cronograma de Pagos;
+     aquí se puede elegir cualquier fecha — lo arma cuentasxpagar.js) -->
+<div id="dp-pop" class="dp-pop hidden" role="dialog" aria-label="Seleccionar fecha">
+    <div class="dp-head">
+        <div class="dp-nav-grupo">
+            <button type="button" class="dp-nav" id="dp-prev-anio" aria-label="Año anterior" title="Año anterior"><i class="fas fa-angles-left"></i></button>
+            <button type="button" class="dp-nav" id="dp-prev" aria-label="Mes anterior" title="Mes anterior"><i class="fas fa-chevron-left"></i></button>
+        </div>
+        <strong id="dp-titulo"></strong>
+        <div class="dp-nav-grupo">
+            <button type="button" class="dp-nav" id="dp-next" aria-label="Mes siguiente" title="Mes siguiente"><i class="fas fa-chevron-right"></i></button>
+            <button type="button" class="dp-nav" id="dp-next-anio" aria-label="Año siguiente" title="Año siguiente"><i class="fas fa-angles-right"></i></button>
+        </div>
+    </div>
+    <div class="dp-semana">
+        <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+    </div>
+    <div class="dp-grid" id="dp-grid"></div>
+    <div class="dp-acciones">
+        <button type="button" class="dp-accion" id="dp-hoy">Hoy</button>
+        <button type="button" class="dp-accion secundaria" id="dp-borrar">Borrar</button>
     </div>
 </div>
 

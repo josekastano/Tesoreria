@@ -261,39 +261,35 @@ ob_start();
                     <div class="pmt-body">
 
                         <div class="pmt-fg">
-                            <label class="pmt-fl">Días de pago programados</label>
+                            <div class="week-head">
+                                <span class="pmt-fl" id="lbl-dias">Días de pago programados <span class="required">*</span></span>
+                                <span class="week-count" id="week-count"><?= $dias_definidos ?> de 3</span>
+                            </div>
 
-                            <div class="week-strip" id="week-strip">
+                            <div class="week-strip" id="week-strip" role="group" aria-labelledby="lbl-dias">
                                 <?php
                                 $dias_corto = [1 => 'L', 2 => 'M', 3 => 'M', 4 => 'J', 5 => 'V', 6 => 'S'];
                                 foreach ($dias_corto as $num => $letra):
                                     $activo = in_array($num, $dias_sel);
                                 ?>
-                                    <div class="week-day <?= $activo ? 'active' : '' ?>" data-dia="<?= $num ?>">
+                                    <button type="button"
+                                            class="week-day <?= $activo ? 'active' : '' ?>"
+                                            data-dia="<?= $num ?>"
+                                            aria-pressed="<?= $activo ? 'true' : 'false' ?>">
                                         <span class="week-day-letter"><?= $letra ?></span>
                                         <span class="week-day-name"><?= DIAS_SEMANA[$num] ?></span>
-                                    </div>
+                                    </button>
                                 <?php endforeach; ?>
                             </div>
 
-                            <div class="form-grid-3">
-                                <?php for ($i = 1; $i <= 3; $i++): ?>
-                                    <div class="form-field">
-                                        <label class="form-label" for="diapago<?= $i ?>">
-                                            Día #<?= $i ?> <span class="required">*</span>
-                                        </label>
-                                        <select id="diapago<?= $i ?>" name="sel_diapago<?= $i ?>" class="form-select diapago-select">
-                                            <option value="">Seleccione...</option>
-                                            <?php foreach (DIAS_SEMANA as $num => $nombre): ?>
-                                                <option value="<?= $num ?>" <?= (int)($pmtros['fec_diapago' . $i] ?? 0) === $num ? 'selected' : '' ?>><?= $nombre ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <span class="field-error" id="err-diapago<?= $i ?>"></span>
-                                    </div>
-                                <?php endfor; ?>
-                            </div>
+                            <!-- Valores que se envían al servidor (los llena el JS al hacer clic en los días) -->
+                            <?php for ($i = 1; $i <= 3; $i++): ?>
+                                <input type="hidden" id="diapago<?= $i ?>" name="sel_diapago<?= $i ?>"
+                                       value="<?= !empty($pmtros['fec_diapago' . $i]) ? (int)$pmtros['fec_diapago' . $i] : '' ?>">
+                            <?php endfor; ?>
 
-                            <p class="field-hint">Los tres días deben ser diferentes entre sí.</p>
+                            <span class="field-error" id="err-dias"></span>
+                            <p class="field-hint">Haga clic en un día para seleccionarlo o quitarlo. Debe elegir exactamente 3.</p>
                         </div>
 
                         <div class="pmt-fg">

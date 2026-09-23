@@ -60,6 +60,264 @@ function escapeHtml(str) {
 }
 
 // ============================================================
+// 1.1 CALENDARIO PARA ELEGIR FECHAS (mismo estilo que Cronograma)
+// ------------------------------------------------------------
+// Reemplaza a los <input type="date">. A diferencia del calendario
+// de Cronograma de Pagos, aquí NO se bloquean días de pago ni
+// festivos: se puede elegir cualquier fecha. Solo se respeta el
+// data-min / data-max del campo (el mismo min/max que ya tenía el
+// input de fecha).
+// La fecha se guarda en un <input type="hidden"> con el mismo id y
+// name que antes, así que el envío del formulario no cambia.
+// ============================================================
+const MESES_DP = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const DIAS_DP  = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+// Fecha local en 'YYYY-MM-DD' (toISOString usa UTC y en la noche
+// de Colombia ya devolvería el día siguiente)
+function isoLocal(fecha) {
+    return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+}
+
+function hoyLocal() { return isoLocal(new Date()); }
+
+function fechaISO(anio, mes, dia) {
+    return `${anio}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+}
+
+function mesIndice(iso) {
+    const [y, m] = iso.split('-').map(Number);
+    return y * 12 + (m - 1);
+}
+
+// En Cuentas por Pagar no hay días especiales que resaltar
+function marcaFecha(/* iso */) { return null; }
+
+const selectorFecha = {
+    hiddenId: null,   // input hidden que recibe la fecha
+    anio: 0,
+    mes: 0,           // 0-11
+    min: '',          // 'YYYY-MM-DD' o ''
+    max: '',
+};
+
+function triggerFecha(hiddenId) { return document.getElementById(`${hiddenId}-btn`); }
+
+function fueraDeRango(iso) {
+    return (selectorFecha.min && iso < selectorFecha.min) || (selectorFecha.max && iso > selectorFecha.max);
+}
+
+// Muestra en el botón del campo la fecha elegida (o el texto vacío)
+function pintarCampoFecha(hiddenId) {
+    const btn   = triggerFecha(hiddenId);
+    const texto = btn?.querySelector('.dp-trigger-texto');
+    if (!texto) return;
+    const fecha = val(hiddenId);
+    if (fecha) {
+        const [y, m, d] = fecha.split('-').map(Number);
+        texto.textContent = btn.dataset.formato === 'corto'
+            ? formatDate(fecha)
+            : `${DIAS_DP[new Date(y, m - 1, d).getDay()]}, ${formatDate(fecha)}`;
+        texto.classList.remove('vacio');
+    } else {
+        texto.textContent = btn.dataset.placeholder || 'Seleccione una fecha';
+        texto.classList.add('vacio');
+    }
+}
+
+// Asigna una fecha al campo y actualiza el botón. Con disparar = true
+// emite 'change' (un input hidden no lo hace solo).
+function setFecha(hiddenId, iso, disparar = false) {
+    setVal(hiddenId, iso);
+    pintarCampoFecha(hiddenId);
+    if (disparar) {
+        document.getElementById(hiddenId)?.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+}
+
+function abrirSelectorFecha(hiddenId) {
+    const pop = document.getElementById('dp-pop');
+    const btn = triggerFecha(hiddenId);
+    if (!pop || !btn) return;
+
+    document.querySelectorAll('.dp-trigger.abierto').forEach(b => b.classList.remove('abierto'));
+
+    selectorFecha.hiddenId = hiddenId;
+    selectorFecha.min = btn.dataset.min || '';
+    selectorFecha.max = btn.dataset.max || '';
+
+    // Se abre en el mes de la fecha elegida; si no hay, en el mes actual
+    // (o en el límite más cercano si hoy queda fuera del rango)
+    let base = val(hiddenId);
+    if (!base) {
+        base = hoyLocal();
+        if (selectorFecha.min && base < selectorFecha.min) base = selectorFecha.min;
+        if (selectorFecha.max && base > selectorFecha.max) base = selectorFecha.max;
+    }
+    const [y, m] = base.split('-').map(Number);
+    selectorFecha.anio = y;
+    selectorFecha.mes  = m - 1;
+
+    btn.classList.add('abierto');
+    pop.classList.remove('hidden');
+    renderSelectorFecha();
+    posicionarSelectorFecha();
+}
+
+function cerrarSelectorFecha() {
+    document.getElementById('dp-pop')?.classList.add('hidden');
+    document.querySelectorAll('.dp-trigger.abierto').forEach(b => b.classList.remove('abierto'));
+    selectorFecha.hiddenId = null;
+}
+
+function selectorFechaAbierto() {
+    const pop = document.getElementById('dp-pop');
+    return !!pop && !pop.classList.contains('hidden');
+}
+
+// El calendario es position:fixed para que no lo recorte el scroll del modal
+function posicionarSelectorFecha() {
+    const pop = document.getElementById('dp-pop');
+    const btn = triggerFecha(selectorFecha.hiddenId);
+    if (!pop || !btn) return;
+
+    const r = btn.getBoundingClientRect();
+    const w = pop.offsetWidth;
+    const h = pop.offsetHeight;
+
+    let left = Math.min(r.left, window.innerWidth - w - 8);
+    left = Math.max(8, left);
+
+    let top = r.bottom + 6;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6); // si no cabe abajo, arriba
+
+    pop.style.left = `${left}px`;
+    pop.style.top  = `${top}px`;
+}
+
+function renderSelectorFecha() {
+    const { anio, mes, hiddenId, min, max } = selectorFecha;
+    const grid = document.getElementById('dp-grid');
+    if (!grid) return;
+
+    setText('dp-titulo', `${MESES_DP[mes]} ${anio}`);
+    setText('dp-info', '');
+
+    // Flechas: solo se deshabilitan si el campo tiene min/max
+    const actual = anio * 12 + mes;
+    const minMes = min ? mesIndice(min) : -Infinity;
+    const maxMes = max ? mesIndice(max) : Infinity;
+    const setDis = (id, dis) => { const b = document.getElementById(id); if (b) b.disabled = dis; };
+    setDis('dp-prev-anio', actual <= minMes);
+    setDis('dp-prev',      actual <= minMes);
+    setDis('dp-next',      actual >= maxMes);
+    setDis('dp-next-anio', actual >= maxMes);
+
+    const seleccion = val(hiddenId);
+    const hoy       = hoyLocal();
+    const primerDia = new Date(anio, mes, 1).getDay(); // 0 = domingo
+    const diasMes   = new Date(anio, mes + 1, 0).getDate();
+
+    let html = '';
+    for (let i = 0; i < primerDia; i++) html += '<span class="dp-dia vacio"></span>';
+
+    for (let d = 1; d <= diasMes; d++) {
+        const iso    = fechaISO(anio, mes, d);
+        const fuera  = fueraDeRango(iso);
+        const marca  = marcaFecha(iso);
+        const clases = ['dp-dia'];
+        let titulo   = '';
+        let info     = '';
+
+        if (fuera) { clases.push('fuera'); titulo = 'Fuera del rango permitido'; }
+        if (marca) { clases.push(marca.clase); titulo = marca.info; info = marca.info; }
+        if (iso === hoy)       clases.push('hoy');
+        if (iso === seleccion) clases.push('sel');
+
+        html += `<button type="button" class="${clases.join(' ')}" data-fecha="${iso}"
+                    ${titulo ? `title="${escapeHtml(titulo)}"` : ''}
+                    ${info ? `data-info="${escapeHtml(info)}"` : ''}
+                    ${fuera ? 'disabled' : ''}>${d}</button>`;
+    }
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.dp-dia:not(.vacio)').forEach(btn => {
+        btn.addEventListener('mouseenter', () => setText('dp-info', btn.dataset.info || ''));
+        if (!btn.disabled) {
+            btn.addEventListener('click', () => elegirFechaSelector(btn.dataset.fecha));
+        }
+    });
+
+    const btnHoy = document.getElementById('dp-hoy');
+    if (btnHoy) btnHoy.disabled = !!fueraDeRango(hoy);
+}
+
+function elegirFechaSelector(iso) {
+    const hiddenId = selectorFecha.hiddenId;
+    if (!hiddenId) return;
+    cerrarSelectorFecha();
+    setFecha(hiddenId, iso, true);
+}
+
+function moverMesSelector(delta) {
+    const { min, max } = selectorFecha;
+    let total = selectorFecha.anio * 12 + selectorFecha.mes + delta;
+    if (min) total = Math.max(total, mesIndice(min));
+    if (max) total = Math.min(total, mesIndice(max));
+    selectorFecha.anio = Math.floor(total / 12);
+    selectorFecha.mes  = total % 12;
+    renderSelectorFecha();
+    posicionarSelectorFecha();
+}
+
+function initSelectorFecha() {
+    document.querySelectorAll('.dp-trigger').forEach(btn => {
+        pintarCampoFecha(btn.dataset.target);
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const hiddenId = btn.dataset.target;
+            if (selectorFechaAbierto() && selectorFecha.hiddenId === hiddenId) {
+                cerrarSelectorFecha();
+                return;
+            }
+            abrirSelectorFecha(hiddenId);
+        });
+    });
+
+    document.getElementById('dp-prev')?.addEventListener('click', () => moverMesSelector(-1));
+    document.getElementById('dp-next')?.addEventListener('click', () => moverMesSelector(1));
+    document.getElementById('dp-prev-anio')?.addEventListener('click', () => moverMesSelector(-12));
+    document.getElementById('dp-next-anio')?.addEventListener('click', () => moverMesSelector(12));
+
+    document.getElementById('dp-hoy')?.addEventListener('click', () => elegirFechaSelector(hoyLocal()));
+    document.getElementById('dp-borrar')?.addEventListener('click', () => {
+        const hiddenId = selectorFecha.hiddenId;
+        if (!hiddenId) return;
+        cerrarSelectorFecha();
+        setFecha(hiddenId, '', true);
+    });
+
+    // Cerrar al hacer clic por fuera o con Escape
+    document.addEventListener('mousedown', e => {
+        if (!selectorFechaAbierto()) return;
+        if (e.target.closest('#dp-pop') || e.target.closest('.dp-trigger')) return;
+        cerrarSelectorFecha();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && selectorFechaAbierto()) {
+            e.stopPropagation();
+            cerrarSelectorFecha();
+        }
+    }, true);
+
+    // Seguir al campo si se hace scroll dentro del modal o cambia el tamaño
+    window.addEventListener('resize', () => { if (selectorFechaAbierto()) posicionarSelectorFecha(); });
+    document.addEventListener('scroll', e => {
+        if (selectorFechaAbierto() && !e.target.closest?.('#dp-pop')) posicionarSelectorFecha();
+    }, true);
+}
+
+// ============================================================
 // 2. CÁLCULO DE FECHA DE VENCIMIENTO EN VIVO
 // ============================================================
 function addDays(dateStr, days) {
@@ -247,8 +505,8 @@ function clearOCFilters() {
     if (filtroProv && !filtroProv.disabled) {
         setVal('oc-filtro-proveedor', '');
     }
-    setVal('oc-fec-desde', '');
-    setVal('oc-fec-hasta', '');
+    setFecha('oc-fec-desde', '');
+    setFecha('oc-fec-hasta', '');
     ocMetodo = 'all';
     document.querySelectorAll('.oc-toggle').forEach(b => b.classList.remove('active'));
     document.querySelector('.oc-toggle[data-met="all"]')?.classList.add('active');
@@ -269,8 +527,8 @@ function openOCModal() {
     const prov = val('new-id-proveedor');
     setVal('oc-search', '');
     setVal('oc-filtro-proveedor', prov || '');
-    setVal('oc-fec-desde', '');
-    setVal('oc-fec-hasta', '');
+    setFecha('oc-fec-desde', '');
+    setFecha('oc-fec-hasta', '');
     ocMetodo = 'all';
     document.querySelectorAll('.oc-toggle').forEach(b => b.classList.remove('active'));
     document.querySelector('.oc-toggle[data-met="all"]')?.classList.add('active');
@@ -300,6 +558,7 @@ function setOCProvLockHint(prov) {
 }
 
 function closeOCModal() {
+    cerrarSelectorFecha();
     hide('modal-oc');
 }
 
@@ -347,7 +606,7 @@ function openNewModal() {
     toggleOCPicker();
     setVal('new-id-factura', '');
     setVal('new-id-proveedor', '');
-    setVal('new-fec-emision', new Date().toISOString().slice(0, 10));
+    setFecha('new-fec-emision', hoyLocal());
     setVal('new-val-factura', '');
     setVal('new-num-cuotas', '1');
     updateVencimientoPreview();
@@ -356,6 +615,7 @@ function openNewModal() {
 }
 
 function closeNewModal() {
+    cerrarSelectorFecha();
     hide('modal-new-factura');
 }
 
@@ -473,6 +733,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function initFacturaModule() {
     document.getElementById('btn-add-factura')?.addEventListener('click', openNewModal);
+
+    // ---------- CALENDARIO DE FECHAS ----------
+    initSelectorFecha();
 
     document.querySelectorAll('input[name="rad_tiene_oc"]')
         .forEach(r => r.addEventListener('change', toggleOCPicker));

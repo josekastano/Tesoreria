@@ -31,6 +31,64 @@ function limpiar_error_pgsql(string $msg): string {
 }
 
 // ============================================================
+// DÍAS DE PAGO (Parámetros de Tesorería) Y FESTIVOS
+// ------------------------------------------------------------
+// fec_diapago1..3 usan 1 = lunes ... 6 = sábado, igual que
+// date('N') de PHP (1 = lunes ... 7 = domingo).
+// ============================================================
+const NOMBRES_DIA_PAGO = [
+    1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles',
+    4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo',
+];
+
+$list_pmtros_tescxp->execute();
+$pmtros_crono = $list_pmtros_tescxp->fetch(PDO::FETCH_ASSOC) ?: [];
+
+$dias_pago = array_values(array_unique(array_filter(
+    array_map('intval', [
+        $pmtros_crono['fec_diapago1'] ?? 0,
+        $pmtros_crono['fec_diapago2'] ?? 0,
+        $pmtros_crono['fec_diapago3'] ?? 0,
+    ]),
+    fn($d) => $d >= 1 && $d <= 6
+)));
+sort($dias_pago);
+
+$dias_pago_texto = $dias_pago
+    ? implode(' · ', array_map(fn($d) => NOMBRES_DIA_PAGO[$d], $dias_pago))
+    : '';
+
+// Mapa 'YYYY-MM-DD' => nombre del festivo
+$list_festivos->execute();
+$festivos_map = [];
+foreach ($list_festivos->fetchAll(PDO::FETCH_ASSOC) as $fst) {
+    $festivos_map[$fst['fecha']] = $fst['nom_festivo'];
+}
+
+/**
+ * Devuelve null si la fecha es válida para programar pagos,
+ * o el mensaje de error si no lo es.
+ */
+function validar_fecha_pago(string $fecha, array $dias_pago, array $festivos_map): ?string {
+    $dt = DateTime::createFromFormat('!Y-m-d', $fecha);
+    if (!$dt || $dt->format('Y-m-d') !== $fecha) {
+        return 'La fecha de programación no es válida.';
+    }
+    if (empty($dias_pago)) {
+        return 'No hay días de pago configurados en Parámetros de Tesorería.';
+    }
+    $dia = (int)$dt->format('N');
+    if (!in_array($dia, $dias_pago, true)) {
+        $permitidos = implode(', ', array_map(fn($d) => NOMBRES_DIA_PAGO[$d], $dias_pago));
+        return 'El ' . mb_strtolower(NOMBRES_DIA_PAGO[$dia]) . ' no es día de pago. Días permitidos: ' . $permitidos . '.';
+    }
+    if (isset($festivos_map[$fecha])) {
+        return 'La fecha es festivo (' . $festivos_map[$fecha] . '). Elija otro día de pago.';
+    }
+    return null;
+}
+
+// ============================================================
 // MANEJO DE PETICIONES POST (SIEMPRE RESPONDEN CON JSON)
 // ============================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -70,6 +128,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errores['err-new-fecha'] = 'La fecha de programación es obligatoria.';
             } elseif ($fec_programacion < $hoy) {
                 $errores['err-new-fecha'] = 'La fecha de programación no puede ser anterior a hoy.';
+            } elseif (($err_fecha = validar_fecha_pago($fec_programacion, $dias_pago, $festivos_map)) !== null) {
+                $errores['err-new-fecha'] = $err_fecha;
             }
 
             // Decodificar las cuotas seleccionadas: "id_factura:id_cuota,id_factura:id_cuota,..."
@@ -123,6 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id_cronograma    = (int)($_POST['hid_edit_id']             ?? 0);
             $nom_cronograma   = trim($_POST['txt_edit_nom_cronograma']  ?? '');
             $fec_programacion = trim($_POST['txt_edit_fec_programacion'] ?? '');
+            $fec_original     = trim($_POST['hid_edit_fec_original']    ?? '');
 
             $errores = [];
 
@@ -134,6 +195,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if (empty($fec_programacion)) {
                 $errores['err-edit-fecha'] = 'La fecha de programación es obligatoria.';
+            } elseif ($fec_programacion !== $fec_original) {
+                // Solo se valida si la fecha cambió (igual que el trigger):
+                // así se puede renombrar un cronograma viejo sin problema.
+                if ($fec_programacion < date('Y-m-d')) {
+                    $errores['err-edit-fecha'] = 'La fecha de programación no puede ser anterior a hoy.';
+                } elseif (($err_fecha = validar_fecha_pago($fec_programacion, $dias_pago, $festivos_map)) !== null) {
+                    $errores['err-edit-fecha'] = $err_fecha;
+                }
             }
 
             if (!empty($errores)) {
@@ -400,6 +469,7 @@ ob_start();
                 <div class="cal-legend">
                     <span class="cal-legend-item"><i class="cal-dot pendiente"></i> Con pendientes</span>
                     <span class="cal-legend-item"><i class="cal-dot pagado"></i> Todos pagados</span>
+                    <span class="cal-legend-item"><i class="cal-dot festivo"></i> Festivo</span>
                 </div>
             </div>
         </div>
@@ -407,9 +477,13 @@ ob_start();
     <!-- /VISTA: CALENDARIO -->
 </div>
 
-<!-- DATOS PARA EL JS (calendario) -->
+<!-- DATOS PARA EL JS (calendario + validación de fechas de pago) -->
 <script>
-const cronogramasData = <?= json_encode(array_values($cronogramas), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+const cronogramasData    = <?= json_encode(array_values($cronogramas), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+// Días de la semana permitidos para pagos (1 = lunes ... 6 = sábado)
+const diasPagoPermitidos = <?= json_encode($dias_pago) ?>;
+// Festivos activos: { 'YYYY-MM-DD': 'Nombre del festivo' }
+const festivosMap        = <?= json_encode((object)$festivos_map, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
 </script>
 
 <!-- MODAL: CRONOGRAMAS DE UN DÍA -->
@@ -450,13 +524,26 @@ const cronogramasData = <?= json_encode(array_values($cronogramas), JSON_HEX_TAG
                     </div>
                     <div class="form-field">
                         <label class="form-label">Fecha de Programación <span class="required">*</span></label>
-                        <input type="date" id="new-fec-prog" name="txt_fec_programacion" class="form-input" min="<?= date('Y-m-d') ?>">
+                        <input type="hidden" id="new-fec-prog" name="txt_fec_programacion" value="">
+                        <button type="button" class="form-input fecha-pago-trigger" id="new-fec-prog-btn"
+                                data-target="new-fec-prog" <?= $dias_pago ? '' : 'disabled' ?>>
+                            <span class="fecha-pago-texto vacio">Seleccione una fecha</span>
+                            <i class="fas fa-calendar-alt"></i>
+                        </button>
                         <span class="field-error" id="err-new-fecha"></span>
                     </div>
                 </div>
 
+                <?php if (!$dias_pago): ?>
+                    <span class="fechas-pago-hint sin-config">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        No hay días de pago configurados. Configúrelos en Parámetros de Tesorería antes de crear un cronograma.
+                    </span>
+                <?php endif; ?>
+
                 <h4 class="detail-subheading"><i class="fas fa-list-check"></i> Cuotas Pendientes Disponibles</h4>
                 <span class="field-error" id="err-new-cuotas"></span>
+                <span class="field-hint" id="cuotas-vencen-antes-info"></span>
                 <div id="cuotas-pendientes-list" class="cuota-picker-list">
                     <?php if (empty($cuotas_pendientes)): ?>
                         <p style="font-size:12px;color:#94a3b8;text-align:center;padding:12px">No hay cuotas pendientes disponibles para programar.</p>
@@ -465,10 +552,14 @@ const cronogramasData = <?= json_encode(array_values($cronogramas), JSON_HEX_TAG
                             $clave = $cu['id_factura'] . ':' . $cu['id_cuota'];
                         ?>
                         <label class="cuota-picker-row">
-                            <input type="checkbox" class="cuota-checkbox" value="<?= htmlspecialchars($clave) ?>" data-valor="<?= htmlspecialchars($cu['val_cuota']) ?>">
+                            <input type="checkbox" class="cuota-checkbox"
+                                   value="<?= htmlspecialchars($clave) ?>"
+                                   data-valor="<?= htmlspecialchars($cu['val_cuota']) ?>"
+                                   data-vence="<?= htmlspecialchars($cu['fec_vencimiento']) ?>">
                             <div class="cuota-picker-info">
                                 <span class="cuota-picker-prov"><?= htmlspecialchars($cu['nom_tercero']) ?> — Factura #<?= htmlspecialchars($cu['id_factura']) ?>, Cuota <?= htmlspecialchars($cu['id_cuota']) ?></span>
                                 <span class="cuota-picker-fecha">Vence: <?= htmlspecialchars(date('d/m/Y', strtotime($cu['fec_vencimiento']))) ?></span>
+                                <span class="cuota-picker-motivo">Vence antes de la fecha programada</span>
                             </div>
                             <span class="cuota-picker-valor">$<?= number_format((float)$cu['val_cuota'], 0, ',', '.') ?></span>
                         </label>
@@ -502,6 +593,7 @@ const cronogramasData = <?= json_encode(array_values($cronogramas), JSON_HEX_TAG
             <form id="edit-crono-form" novalidate>
                 <input type="hidden" name="btn_editar" value="1">
                 <input type="hidden" name="hid_edit_id" id="edit-crono-id" value="">
+                <input type="hidden" name="hid_edit_fec_original" id="edit-fec-original" value="">
                 <div class="form-field">
                     <label class="form-label">Nombre del Cronograma <span class="required">*</span></label>
                     <input type="text" id="edit-nom-crono" name="txt_edit_nom_cronograma" class="form-input" minlength="3" maxlength="30">
@@ -509,7 +601,11 @@ const cronogramasData = <?= json_encode(array_values($cronogramas), JSON_HEX_TAG
                 </div>
                 <div class="form-field">
                     <label class="form-label">Fecha de Programación <span class="required">*</span></label>
-                    <input type="date" id="edit-fec-prog" name="txt_edit_fec_programacion" class="form-input" min="<?= date('Y-m-d') ?>">
+                    <input type="hidden" id="edit-fec-prog" name="txt_edit_fec_programacion" value="">
+                    <button type="button" class="form-input fecha-pago-trigger" id="edit-fec-prog-btn" data-target="edit-fec-prog">
+                        <span class="fecha-pago-texto vacio">Seleccione una fecha</span>
+                        <i class="fas fa-calendar-alt"></i>
+                    </button>
                     <span class="field-error" id="err-edit-fecha"></span>
                 </div>
             </form>
@@ -551,6 +647,41 @@ const cronogramasData = <?= json_encode(array_values($cronogramas), JSON_HEX_TAG
             <button type="button" class="btn-cancelar" id="confirm-eliminar-cancel-btn">Cancelar</button>
             <button type="button" class="btn-eliminar" id="confirm-eliminar-ok-btn">Sí, eliminar</button>
         </div>
+    </div>
+</div>
+
+<!-- MODAL: CONFIRMAR CUOTAS QUE VENCEN ANTES DE LA FECHA PROGRAMADA -->
+<div id="modal-confirm-vencidas" class="modal-overlay hidden">
+    <div class="modal-box confirm-box confirm-vencidas-box">
+        <div class="confirm-icon confirm-icon-danger"><i class="fas fa-exclamation-triangle"></i></div>
+        <h4>Cuotas que vencen antes del pago</h4>
+        <p id="confirm-vencidas-body"></p>
+        <ul id="confirm-vencidas-list" class="confirm-vencidas-list"></ul>
+        <p class="confirm-vencidas-pregunta">¿Desea guardar el cronograma de todas formas?</p>
+        <div class="confirm-buttons">
+            <button type="button" class="btn-cancelar" id="confirm-vencidas-cancel-btn">Revisar cuotas</button>
+            <button type="button" class="btn-eliminar" id="confirm-vencidas-ok-btn">Sí, guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- CALENDARIO FLOTANTE PARA ELEGIR LA FECHA DE PAGO (lo arma cronopagos.js) -->
+<div id="dp-pop" class="dp-pop hidden" role="dialog" aria-label="Seleccionar fecha de pago">
+    <div class="dp-head">
+        <button type="button" class="dp-nav" id="dp-prev" aria-label="Mes anterior"><i class="fas fa-chevron-left"></i></button>
+        <strong id="dp-titulo"></strong>
+        <button type="button" class="dp-nav" id="dp-next" aria-label="Mes siguiente"><i class="fas fa-chevron-right"></i></button>
+    </div>
+    <div class="dp-semana">
+        <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+    </div>
+    <div class="dp-grid" id="dp-grid"></div>
+    <div class="dp-festivo-info" id="dp-festivo-info"></div>
+    <div class="dp-leyenda">
+        <span><i class="l-pago"></i>Día de pago</span>
+        <span><i class="l-festivo"></i>Festivo</span>
+        <span><i class="l-bloq"></i>No disponible</span>
+        <span class="dp-dias-pago">Días de pago: <strong><?= htmlspecialchars($dias_pago_texto ?: 'sin configurar') ?></strong></span>
     </div>
 </div>
 

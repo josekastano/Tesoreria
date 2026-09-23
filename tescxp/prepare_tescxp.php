@@ -788,6 +788,26 @@ try {
       ORDER BY c.fec_vencimiento"
     );
 
+    // ---- VENCIMIENTO DE UNA CUOTA (validar contra la fecha del cronograma) ----
+    // >>> NUEVO. Una cuota no puede entrar a un cronograma si vence después
+    //     de la fecha de programación.
+    $get_venc_cuota = $pdo->prepare(
+        "SELECT  fec_vencimiento
+           FROM  tab_cuotasxfactura
+          WHERE  id_factura = :wid_factura
+            AND  id_cuota   = :wid_cuota"
+    );
+
+    // ---- VENCIMIENTO MÁS LEJANO DE LAS CUOTAS DE UN CRONOGRAMA ----
+    // >>> NUEVO. Al editar, la nueva fecha no puede quedar antes de este valor.
+    $get_max_venc_cronograma = $pdo->prepare(
+        "SELECT  MAX(c.fec_vencimiento)
+           FROM  tab_det_cronopagos  d
+           JOIN  tab_cuotasxfactura  c ON c.id_factura = d.id_factura
+                                      AND c.id_cuota   = d.id_cuota
+          WHERE  d.id_cronograma = :wid_cronograma"
+    );
+
     // ---- INSERT — fun_insert_enc_cronopagos (2 params) ----
     // nom_cronograma, fec_programacion   <-- este es el orden real
     // (id_cronograma se autogenera; total_a_pagar inicia en 0 y se recalcula

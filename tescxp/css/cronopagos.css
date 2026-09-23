@@ -806,7 +806,15 @@
 #mod-cronograma .cal-side-list {
     list-style: none;
     display: flex; flex-direction: column; gap: 9px;
-    max-height: 168px; overflow-y: auto;
+}
+
+/* Si el día tiene más de 3 cronogramas, en vez de un scroll interno se
+   muestra esta línea informativa "+N más" (no es botón: el listado completo
+   se abre con el botón de abajo). Alineada con el texto de los ítems. */
+#mod-cronograma .cal-side-more {
+    padding-left: 16px;
+    font-size: 11.5px; font-weight: 600;
+    color: rgba(255,255,255,0.7);
 }
 
 #mod-cronograma .cal-side-item {
@@ -1037,6 +1045,117 @@
     color: #0a0c1a; white-space: nowrap;
 }
 
+/* Cuota que vence ANTES de la fecha programada: se puede seleccionar,
+   pero se marca con una alerta roja para que el usuario lo tenga presente. */
+.cuota-picker-row {
+    transition: background 0.15s;
+}
+
+.cuota-picker-row.vence-antes { background: #fffafa; }
+.cuota-picker-row.vence-antes:hover { background: #fef2f2; }
+
+.cuota-picker-row.vence-antes .cuota-picker-fecha {
+    color: #dc2626;
+}
+
+/* Alerta: etiqueta tipo "badge", solo visible cuando la cuota vence antes */
+.cuota-picker-motivo {
+    display: none;
+    align-self: flex-start;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 3px 10px;
+    border-radius: 40px;
+    background: var(--dash-red-light, #fef2f2);
+    color: #dc2626;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.cuota-picker-motivo::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+
+.cuota-picker-row.vence-antes .cuota-picker-motivo { display: inline-flex; }
+
+/* Aviso de cuántas cuotas vencen antes de la fecha */
+#cuotas-vencen-antes-info {
+    display: block;
+    margin: 0 0 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #dc2626;
+}
+
+#cuotas-vencen-antes-info:empty { display: none; }
+
+/* ============================================
+   MODAL: CONFIRMAR CUOTAS QUE VENCEN ANTES
+   ============================================ */
+.modal-box.confirm-vencidas-box { max-width: 460px; }
+
+.confirm-icon.confirm-icon-danger { color: #ef4444; }
+
+.confirm-vencidas-box p { margin-bottom: 12px; font-size: 13.5px; line-height: 1.5; }
+
+.confirm-vencidas-list {
+    list-style: none;
+    margin: 0 24px 14px;
+    padding: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+    text-align: left;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 14px;
+}
+
+.confirm-vencidas-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-family: var(--dash-font);
+}
+
+.confirm-vencidas-list li + li { border-top: 1px solid #fee2e2; }
+
+.confirm-vencidas-list .cv-principal {
+    display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+
+.confirm-vencidas-list .cv-principal strong {
+    font-size: 12.5px; font-weight: 700; color: #1e293b;
+}
+
+.confirm-vencidas-list .cv-principal small {
+    font-size: 11px; color: #64748b;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.confirm-vencidas-list .cv-vence {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.4px;
+    color: #dc2626; white-space: nowrap;
+}
+
+.confirm-vencidas-box .confirm-vencidas-pregunta {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 20px;
+}
+
 .cuota-picker-total {
     display: flex; align-items: center; justify-content: space-between;
     gap: 12px;
@@ -1149,6 +1268,241 @@
     to   { opacity: 1; transform: translateX(0); }
 }
 
+/* ============================================
+   CAMPO DE FECHA DE PAGO (abre el calendario)
+   Reemplaza al <input type="date">: es un botón con el mismo aspecto
+   de .form-input que muestra la fecha elegida.
+   ============================================ */
+.fecha-pago-trigger {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.fecha-pago-trigger .fecha-pago-texto {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.fecha-pago-trigger .fecha-pago-texto.vacio { color: #b0b8c9; }
+.fecha-pago-trigger i { color: #94a3b8; font-size: 14px; flex-shrink: 0; }
+.fecha-pago-trigger.fecha-invalida { border-color: var(--dash-red); }
+
+/* Aviso cuando no hay días de pago configurados en Parámetros */
+.fechas-pago-hint.sin-config {
+    display: flex; align-items: center; gap: 6px;
+    margin: -4px 0 12px;
+    font-size: 11.5px; font-weight: 600;
+    color: var(--dash-red);
+}
+
+/* ============================================
+   CALENDARIO FLOTANTE PARA ELEGIR LA FECHA DE PAGO
+   - Día de pago disponible: azul claro, se puede elegir.
+   - Festivo: rosa, bloqueado (el nombre aparece al pasar el mouse).
+   - Día que no es de pago o ya pasó: gris tachado, bloqueado.
+   Va con position:fixed (lo ubica cronopagos.js) para que el scroll
+   del modal no lo recorte.
+   ============================================ */
+.dp-pop {
+    position: fixed;
+    z-index: 1050;               /* por encima de .modal-overlay (1000) */
+    width: 300px;
+    padding: 14px;
+    background: var(--dash-card);
+    border: 1px solid var(--dash-border);
+    border-radius: var(--dash-radius);
+    box-shadow: 0 16px 36px -8px rgba(15, 23, 42, 0.22);
+    font-family: var(--dash-font);
+    color: var(--dash-text-body);
+    animation: fadeIn 0.15s ease;
+}
+
+.dp-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.dp-head strong {
+    font-size: 14px; font-weight: 800;
+    color: var(--dash-text-head);
+}
+
+.dp-nav {
+    width: 30px; height: 30px;
+    border: none; border-radius: 50%;
+    background: transparent;
+    color: var(--dash-text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.dp-nav:hover:not(:disabled) { color: var(--dash-blue); background: var(--dash-blue-light); }
+.dp-nav:disabled { opacity: 0.35; cursor: default; }
+
+.dp-semana,
+.dp-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    justify-items: center;
+}
+
+.dp-semana { margin-bottom: 4px; }
+
+.dp-semana span {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--dash-text-muted);
+}
+
+.dp-grid { row-gap: 3px; }
+
+.dp-dia {
+    position: relative;
+    width: 34px; height: 34px;
+    border: 1.5px solid transparent;
+    border-radius: 50%;
+    background: transparent;
+    font-family: var(--dash-font);
+    font-size: 12.5px; font-weight: 600;
+    color: var(--dash-text-body);
+    padding: 0;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.dp-dia.vacio { cursor: default; }
+
+/* Día de pago disponible */
+.dp-dia.pago {
+    background: var(--dash-blue-light);
+    color: var(--dash-blue-dark);
+    font-weight: 700;
+}
+
+.dp-dia.pago:hover { border-color: var(--dash-blue); }
+
+/* Bloqueados: no es día de pago, o la fecha ya pasó */
+.dp-dia.no-pago,
+.dp-dia.pasado {
+    color: #cbd5e1;
+    cursor: not-allowed;
+}
+
+.dp-dia.no-pago { text-decoration: line-through; }
+
+/* Festivo: bloqueado y resaltado */
+.dp-dia.festivo {
+    background: var(--dash-rose-light);
+    border-color: color-mix(in srgb, var(--dash-rose) 30%, white);
+    color: var(--dash-rose);
+    font-weight: 700;
+    cursor: not-allowed;
+}
+
+.dp-dia.festivo::after {
+    content: '';
+    position: absolute;
+    left: 50%; bottom: 4px;
+    width: 4px; height: 4px;
+    margin-left: -2px;
+    border-radius: 50%;
+    background: var(--dash-rose);
+}
+
+.dp-dia.hoy { box-shadow: inset 0 0 0 1.5px var(--dash-text-muted); }
+
+/* Fecha elegida (va de último para ganarle a los demás estados) */
+.dp-dia.sel {
+    background: var(--dash-blue);
+    border-color: var(--dash-blue);
+    color: #ffffff;
+    font-weight: 800;
+    text-decoration: none;
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--dash-blue) 35%, transparent);
+}
+
+.dp-dia.sel::after { background: #ffffff; }
+
+/* Nombre del festivo al pasar el mouse */
+.dp-festivo-info {
+    min-height: 16px;
+    margin-top: 8px;
+    font-size: 11px; font-weight: 700;
+    color: var(--dash-rose);
+    text-align: center;
+}
+
+.dp-leyenda {
+    display: flex; flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 8px; padding-top: 10px;
+    border-top: 1px solid var(--dash-border);
+    font-size: 10.5px; font-weight: 600;
+    color: var(--dash-text-sub);
+}
+
+.dp-leyenda span { display: inline-flex; align-items: center; gap: 5px; }
+
+.dp-leyenda i {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+}
+
+.dp-leyenda .l-pago    { background: var(--dash-blue-light); border: 1px solid var(--dash-blue-border); }
+.dp-leyenda .l-festivo { background: var(--dash-rose-light); border: 1px solid color-mix(in srgb, var(--dash-rose) 30%, white); }
+.dp-leyenda .l-bloq    { background: #f8fafc; border: 1px solid #e2e8f0; }
+
+.dp-leyenda .dp-dias-pago {
+    width: 100%;
+    font-weight: 500;
+    color: var(--dash-text-muted);
+}
+
+.dp-leyenda .dp-dias-pago strong { color: var(--dash-text-sub); }
+
+/* ============================================
+   VISTA CALENDARIO: festivos y días que no son de pago
+   ============================================ */
+/* Los festivos se pueden seleccionar para ver su nombre en el panel */
+#mod-cronograma .cal-day.festivo { cursor: pointer; }
+
+#mod-cronograma .cal-day.festivo .cal-day-num {
+    background: var(--dash-rose-light);
+    color: var(--dash-rose);
+    font-weight: 800;
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--dash-rose) 30%, white);
+}
+
+#mod-cronograma .cal-day.festivo:hover .cal-day-num {
+    background: color-mix(in srgb, var(--dash-rose) 18%, white);
+}
+
+/* Festivo seleccionado: se conserva el azul de la selección */
+#mod-cronograma .cal-day.festivo.sel .cal-day-num {
+    background: var(--dash-blue);
+    color: #ffffff;
+    box-shadow: none;
+}
+
+/* Días que no son de pago: atenuados (si no tienen cronogramas) */
+#mod-cronograma .cal-day.no-pago:not(.has-crono):not(.hoy):not(.sel) { color: #c4cbd6; }
+
+#mod-cronograma .cal-dot.festivo { background: var(--dash-rose); }
+
+/* Aviso de festivo en el panel azul del día seleccionado */
+#mod-cronograma .cal-side-festivo {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px;
+    border-radius: 30px;
+    background: var(--dash-rose-light);
+    color: var(--dash-rose);
+    font-size: 11.5px; font-weight: 700;
+    line-height: 1.3;
+}
+
 /* ---- RESPONSIVE ---- */
 @media (max-width: 900px) {
     #mod-cronograma { padding: 20px; }
@@ -1169,7 +1523,6 @@
     #mod-cronograma .cal-shell { grid-template-columns: minmax(0, 1fr); }
     #mod-cronograma .cal-side { padding: 20px; gap: 16px; }
     #mod-cronograma .cal-side-day { font-size: 48px; }
-    #mod-cronograma .cal-side-list { max-height: 120px; }
     #mod-cronograma .cal-main { padding: 16px; }
     #mod-cronograma .cal-months { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
     #mod-cronograma .cal-day { height: 36px; }

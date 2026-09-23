@@ -60,6 +60,282 @@ function escapeHtml(str) {
 }
 
 // ============================================================
+// 1.1 FECHAS DE PAGO PERMITIDAS (Parámetros + Festivos)
+// ------------------------------------------------------------
+// diasPagoPermitidos y festivosMap los inyecta cronopagos.php.
+// Numeración de días: 1 = lunes ... 7 = domingo (ISO), igual que
+// fec_diapago1..3 en tab_pmtros_tescxp.
+// Esta validación es solo de ayuda al usuario: el servidor (PHP)
+// y el trigger trg_validar_fecha_cronograma validan de nuevo.
+// ============================================================
+const NOMBRES_DIA_ISO = { 1: 'lunes', 2: 'martes', 3: 'miércoles', 4: 'jueves', 5: 'viernes', 6: 'sábado', 7: 'domingo' };
+
+// Fecha local en 'YYYY-MM-DD' (toISOString usa UTC y en la noche
+// de Colombia ya devolvería el día siguiente)
+function isoLocal(fecha) {
+    return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+}
+
+function hoyLocal() { return isoLocal(new Date()); }
+
+function diaIso(fechaStr) {
+    const [y, m, d] = fechaStr.split('-').map(Number);
+    const js = new Date(y, m - 1, d).getDay(); // 0 = domingo
+    return js === 0 ? 7 : js;
+}
+
+function getDiasPago() {
+    return (typeof diasPagoPermitidos !== 'undefined' && Array.isArray(diasPagoPermitidos))
+        ? diasPagoPermitidos.map(Number)
+        : [];
+}
+
+function getFestivos() {
+    return (typeof festivosMap !== 'undefined' && festivosMap) ? festivosMap : {};
+}
+
+// Devuelve null si la fecha es válida, o el mensaje de error
+function validarFechaPago(fechaStr) {
+    if (!fechaStr) return 'La fecha de programación es obligatoria.';
+
+    const dias = getDiasPago();
+    if (dias.length === 0) return 'No hay días de pago configurados en Parámetros de Tesorería.';
+
+    const dia = diaIso(fechaStr);
+    if (!dias.includes(dia)) {
+        const permitidos = dias.slice().sort((a, b) => a - b).map(d => NOMBRES_DIA_ISO[d]).join(', ');
+        return `El ${NOMBRES_DIA_ISO[dia]} no es día de pago. Días permitidos: ${permitidos}.`;
+    }
+
+    const festivo = getFestivos()[fechaStr];
+    if (festivo) return `La fecha es festivo (${festivo}). Elija otro día de pago.`;
+
+    return null;
+}
+
+// Clasifica un día para pintarlo en los calendarios:
+//   'festivo' → festivo activo (bloqueado, color propio)
+//   'pasado'  → anterior a hoy (bloqueado)
+//   'no-pago' → no es uno de los días de pago de Parámetros (bloqueado)
+//   'pago'    → día de pago disponible
+function clasificarDia(iso) {
+    const festivo = getFestivos()[iso];
+    if (festivo)                               return { tipo: 'festivo', titulo: `Festivo: ${festivo}` };
+    if (iso < hoyLocal())                      return { tipo: 'pasado',  titulo: 'Fecha pasada' };
+    if (!getDiasPago().includes(diaIso(iso)))  return { tipo: 'no-pago', titulo: 'No es día de pago' };
+    return { tipo: 'pago', titulo: 'Día de pago disponible' };
+}
+
+// Muestra en el botón del campo la fecha elegida (o el texto vacío)
+function pintarCampoFecha(hiddenId) {
+    const btn   = document.getElementById(`${hiddenId}-btn`);
+    const texto = btn?.querySelector('.fecha-pago-texto');
+    if (!texto) return;
+    const fecha = val(hiddenId);
+    if (fecha) {
+        const dia = NOMBRES_DIA_ISO[diaIso(fecha)];
+        texto.textContent = `${dia.charAt(0).toUpperCase()}${dia.slice(1)}, ${formatDate(fecha)}`;
+        texto.classList.remove('vacio');
+    } else {
+        texto.textContent = 'Seleccione una fecha';
+        texto.classList.add('vacio');
+    }
+    btn.classList.remove('fecha-invalida');
+}
+
+// Revisa la fecha elegida (respaldo antes de guardar; el calendario ya
+// no deja elegir días bloqueados). Devuelve true si es válida.
+function revisarFechaInput(inputId, errId, fechaOriginal = null) {
+    const fecha = val(inputId);
+
+    // En edición, si la fecha no cambió no se revalida (igual que el servidor)
+    let error = null;
+    if (fecha === '') {
+        error = 'La fecha de programación es obligatoria.';
+    } else if (fecha !== fechaOriginal) {
+        error = fecha < hoyLocal()
+            ? 'La fecha de programación no puede ser anterior a hoy.'
+            : validarFechaPago(fecha);
+    }
+
+    document.getElementById(`${inputId}-btn`)?.classList.toggle('fecha-invalida', !!error);
+    if (error) showFieldError(errId, error, 6000);
+    return !error;
+}
+
+// ============================================================
+// 1.2 CALENDARIO PARA ELEGIR LA FECHA DE PAGO
+// ------------------------------------------------------------
+// Reemplaza al <input type="date"> (que no permite bloquear días
+// sueltos). Solo se pueden hacer clic en los días de pago; los
+// festivos se ven en rojo y los demás días quedan deshabilitados.
+// La fecha elegida se guarda en un <input type="hidden"> con el
+// mismo id y name que antes, así que el resto del código no cambia.
+// ============================================================
+const selectorFecha = {
+    hiddenId: null,   // input hidden que recibe la fecha
+    original: null,   // fecha original (edición): se deja visible aunque ya no sea válida
+    anio: 0,
+    mes: 0,           // 0-11
+};
+
+function abrirSelectorFecha(hiddenId, original = null) {
+    const pop = document.getElementById('dp-pop');
+    if (!pop) return;
+
+    selectorFecha.hiddenId = hiddenId;
+    selectorFecha.original = original;
+
+    // Se abre en el mes de la fecha elegida, o en el mes actual
+    const base = val(hiddenId) || hoyLocal();
+    const [y, m] = base.split('-').map(Number);
+    selectorFecha.anio = y;
+    selectorFecha.mes  = m - 1;
+
+    pop.classList.remove('hidden');
+    renderSelectorFecha();
+    posicionarSelectorFecha();
+}
+
+function cerrarSelectorFecha() {
+    document.getElementById('dp-pop')?.classList.add('hidden');
+    selectorFecha.hiddenId = null;
+}
+
+function selectorFechaAbierto() {
+    return !document.getElementById('dp-pop')?.classList.contains('hidden');
+}
+
+// El calendario es position:fixed para que no lo recorte el scroll del modal
+function posicionarSelectorFecha() {
+    const pop = document.getElementById('dp-pop');
+    const btn = document.getElementById(`${selectorFecha.hiddenId}-btn`);
+    if (!pop || !btn) return;
+
+    const r = btn.getBoundingClientRect();
+    const w = pop.offsetWidth;
+    const h = pop.offsetHeight;
+
+    let left = Math.min(r.left, window.innerWidth - w - 8);
+    left = Math.max(8, left);
+
+    let top = r.bottom + 6;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6); // si no cabe abajo, arriba
+
+    pop.style.left = `${left}px`;
+    pop.style.top  = `${top}px`;
+}
+
+// No se navega a meses anteriores al actual (salvo el de la fecha original)
+function mesMinimoSelector() {
+    const hoy = hoyLocal();
+    const ref = (selectorFecha.original && selectorFecha.original < hoy) ? selectorFecha.original : hoy;
+    const [y, m] = ref.split('-').map(Number);
+    return y * 12 + (m - 1);
+}
+
+function renderSelectorFecha() {
+    const { anio, mes, hiddenId, original } = selectorFecha;
+    const grid = document.getElementById('dp-grid');
+    if (!grid) return;
+
+    setText('dp-titulo', `${MESES[mes]} ${anio}`);
+    setText('dp-festivo-info', '');
+
+    const prev = document.getElementById('dp-prev');
+    if (prev) prev.disabled = (anio * 12 + mes) <= mesMinimoSelector();
+
+    const seleccion = val(hiddenId);
+    const hoy       = hoyLocal();
+    const primerDia = new Date(anio, mes, 1).getDay(); // 0 = domingo
+    const diasMes   = new Date(anio, mes + 1, 0).getDate();
+
+    let html = '';
+    for (let i = 0; i < primerDia; i++) html += '<span class="dp-dia vacio"></span>';
+
+    for (let d = 1; d <= diasMes; d++) {
+        const iso = fechaISO(anio, mes, d);
+        const { tipo, titulo } = clasificarDia(iso);
+        // La fecha original de un cronograma en edición siempre se puede re-elegir
+        const habilitado = tipo === 'pago' || iso === original;
+
+        const clases = ['dp-dia', tipo];
+        if (iso === hoy)       clases.push('hoy');
+        if (iso === seleccion) clases.push('sel');
+
+        html += `<button type="button" class="${clases.join(' ')}" data-fecha="${iso}"
+                    title="${escapeHtml(titulo)}" ${habilitado ? '' : 'disabled'}>${d}</button>`;
+    }
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.dp-dia:not(.vacio)').forEach(btn => {
+        // Al pasar sobre un festivo se muestra su nombre
+        btn.addEventListener('mouseenter', () => {
+            setText('dp-festivo-info', btn.classList.contains('festivo') ? btn.title : '');
+        });
+        if (!btn.disabled) {
+            btn.addEventListener('click', () => elegirFechaSelector(btn.dataset.fecha));
+        }
+    });
+}
+
+function elegirFechaSelector(iso) {
+    const hiddenId = selectorFecha.hiddenId;
+    if (!hiddenId) return;
+    setVal(hiddenId, iso);
+    pintarCampoFecha(hiddenId);
+    cerrarSelectorFecha();
+    // Un input hidden no dispara 'change' solo: se dispara a mano
+    document.getElementById(hiddenId)?.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function moverMesSelector(delta) {
+    let total = selectorFecha.anio * 12 + selectorFecha.mes + delta;
+    total = Math.max(total, mesMinimoSelector());
+    selectorFecha.anio = Math.floor(total / 12);
+    selectorFecha.mes  = total % 12;
+    renderSelectorFecha();
+    posicionarSelectorFecha();
+}
+
+function initSelectorFecha() {
+    document.querySelectorAll('.fecha-pago-trigger').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const hiddenId = btn.dataset.target;
+            if (selectorFechaAbierto() && selectorFecha.hiddenId === hiddenId) {
+                cerrarSelectorFecha();
+                return;
+            }
+            const original = hiddenId === 'edit-fec-prog' ? val('edit-fec-original') : null;
+            abrirSelectorFecha(hiddenId, original);
+        });
+    });
+
+    document.getElementById('dp-prev')?.addEventListener('click', () => moverMesSelector(-1));
+    document.getElementById('dp-next')?.addEventListener('click', () => moverMesSelector(1));
+
+    // Cerrar al hacer clic por fuera o con Escape
+    document.addEventListener('mousedown', e => {
+        if (!selectorFechaAbierto()) return;
+        if (e.target.closest('#dp-pop') || e.target.closest('.fecha-pago-trigger')) return;
+        cerrarSelectorFecha();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && selectorFechaAbierto()) {
+            e.stopPropagation();
+            cerrarSelectorFecha();
+        }
+    }, true);
+
+    // Seguir al campo si se hace scroll dentro del modal o cambia el tamaño
+    window.addEventListener('resize', () => { if (selectorFechaAbierto()) posicionarSelectorFecha(); });
+    document.addEventListener('scroll', e => {
+        if (selectorFechaAbierto() && !e.target.closest?.('#dp-pop')) posicionarSelectorFecha();
+    }, true);
+}
+
+// ============================================================
 // 2. VISTA: TOGGLE TABLA / CALENDARIO
 // ============================================================
 function switchView(view) {
@@ -82,7 +358,7 @@ function switchView(view) {
 // ============================================================
 let calCurrentYear   = new Date().getFullYear();
 let calCurrentMonth  = new Date().getMonth(); // 0-11
-let calSelectedDate  = new Date().toISOString().slice(0, 10);
+let calSelectedDate  = hoyLocal();
 let calPrimerRender  = true;
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -122,13 +398,30 @@ function renderSidePanel() {
     const btn = document.getElementById('cal-side-detail');
     if (!lista) return;
 
+    // Si el día es festivo se avisa arriba de la lista
+    const festivo = getFestivos()[calSelectedDate];
+    const avisoFestivo = festivo
+        ? `<li class="cal-side-festivo"><i class="fas fa-flag"></i> Festivo: ${escapeHtml(festivo)}</li>`
+        : '';
+
     if (cronosDia.length === 0) {
-        lista.innerHTML = '<li class="cal-side-vacio">No hay pagos programados este día.</li>';
-        if (btn) btn.disabled = true;
+        lista.innerHTML = avisoFestivo + '<li class="cal-side-vacio">No hay pagos programados este día.</li>';
+        if (btn) {
+            btn.disabled = true;
+            const span = btn.querySelector('span');
+            if (span) span.textContent = 'Ver detalle del día';
+        }
         return;
     }
 
-    lista.innerHTML = cronosDia.map(c => {
+    // Máximo 3 cronogramas en el panel; el resto se resume en una línea
+    // informativa "+N más". El único botón que abre el modal del día es el
+    // de abajo, que indica cuántos cronogramas hay cuando no caben todos.
+    const MAX_VISIBLES = 3;
+    const visibles = cronosDia.slice(0, MAX_VISIBLES);
+    const resto = cronosDia.length - visibles.length;
+
+    lista.innerHTML = avisoFestivo + visibles.map(c => {
         const pagado = estaPagado(c);
         return `
             <li class="cal-side-item ${pagado ? 'pagado' : ''}">
@@ -138,7 +431,16 @@ function renderSidePanel() {
                     <span class="cal-side-item-meta">${formatCurrency(c.total_a_pagar)} · ${pagado ? 'Pagado' : 'Pendiente'}</span>
                 </span>
             </li>`;
-    }).join('');
+    }).join('') + (resto > 0
+        ? `<li class="cal-side-more">+${resto} cronograma${resto !== 1 ? 's' : ''} más</li>`
+        : '');
+
+    const btnTexto = btn?.querySelector('span');
+    if (btnTexto) {
+        btnTexto.textContent = resto > 0
+            ? `Ver los ${cronosDia.length} cronogramas`
+            : 'Ver detalle del día';
+    }
 
     if (btn) btn.disabled = false;
 }
@@ -197,7 +499,7 @@ function renderCalendar() {
     const primerDiaSemana = new Date(calCurrentYear, calCurrentMonth, 1).getDay(); // 0=Dom
     const diasEnMes = new Date(calCurrentYear, calCurrentMonth + 1, 0).getDate();
     const diasMesPrevio = new Date(calCurrentYear, calCurrentMonth, 0).getDate();
-    const hoyStr = new Date().toISOString().slice(0, 10);
+    const hoyStr = hoyLocal();
 
     // La rejilla siempre muestra seis semanas completas: los días del mes
     // vecino se dibujan atenuados en vez de dejar huecos.
@@ -223,6 +525,16 @@ function renderCalendar() {
         const cronosDia = cronosPorFecha[celda.fecha] || [];
         const clases = ['cal-day'];
         let dotHtml = '';
+        let titulo = '';
+
+        // Festivos en rojo; los días que no son de pago, atenuados
+        const festivo = getFestivos()[celda.fecha];
+        if (festivo) {
+            clases.push('festivo');
+            titulo = `Festivo: ${festivo}`;
+        } else if (!getDiasPago().includes(diaIso(celda.fecha))) {
+            clases.push('no-pago');
+        }
 
         if (cronosDia.length > 0) {
             clases.push('has-crono');
@@ -233,14 +545,15 @@ function renderCalendar() {
         if (celda.fecha === calSelectedDate) clases.push('sel');
 
         return `
-            <div class="${clases.join(' ')}" data-fecha="${celda.fecha}">
+            <div class="${clases.join(' ')}" data-fecha="${celda.fecha}"${titulo ? ` title="${escapeHtml(titulo)}"` : ''}>
                 <span class="cal-day-num">${String(celda.dia).padStart(2, '0')}</span>
                 ${dotHtml}
             </div>`;
     }).join('');
 
     // Un clic selecciona el día: el detalle se muestra en el panel izquierdo
-    grid.querySelectorAll('.cal-day.has-crono').forEach(dayEl => {
+    // (también los festivos, para ver su nombre en el panel)
+    grid.querySelectorAll('.cal-day.has-crono, .cal-day.festivo').forEach(dayEl => {
         dayEl.addEventListener('click', () => {
             calSelectedDate = dayEl.dataset.fecha;
             renderCalendar();
@@ -320,6 +633,77 @@ function updateSeleccionCuotas() {
 }
 
 // ============================================================
+// 3.1 MARCAR CUOTAS QUE VENCEN ANTES DE LA FECHA PROGRAMADA
+// ------------------------------------------------------------
+// - Todas las cuotas siempre están visibles y se pueden seleccionar.
+// - Cada vez que cambia la fecha se reevalúan: las que vencen ANTES de
+//   la fecha programada muestran la alerta roja "Vence antes de la fecha
+//   programada"; las demás la ocultan.
+// - Al guardar, si hay cuotas seleccionadas en ese estado, se pide
+//   confirmación listando cuáles son (ver confirmarCuotasVencidas).
+// ============================================================
+function venceAntesDeFecha(cb, fecha) {
+    return fecha !== '' && (cb.dataset.vence || '') !== '' && cb.dataset.vence < fecha;
+}
+
+function marcarCuotasPorFecha() {
+    const fecha = val('new-fec-prog');
+    let venceAntes = 0;
+
+    document.querySelectorAll('.cuota-checkbox').forEach(cb => {
+        const antes = venceAntesDeFecha(cb, fecha);
+        cb.closest('.cuota-picker-row')?.classList.toggle('vence-antes', antes);
+        if (antes) venceAntes++;
+    });
+
+    setText('cuotas-vencen-antes-info', venceAntes
+        ? `${venceAntes} cuota(s) vencen antes del ${formatDate(fecha)}. Puede incluirlas, pero se le pedirá confirmación al guardar.`
+        : '');
+}
+
+// Cuotas seleccionadas que vencen antes de la fecha programada
+function getCuotasSeleccionadasVencidas() {
+    const fecha = val('new-fec-prog');
+    return Array.from(document.querySelectorAll('.cuota-checkbox:checked'))
+        .filter(cb => venceAntesDeFecha(cb, fecha))
+        .map(cb => {
+            const [idFactura, idCuota] = cb.value.split(':');
+            const proveedor = (cb.closest('.cuota-picker-row')
+                ?.querySelector('.cuota-picker-prov')?.textContent || '')
+                .split(' — ')[0].trim();
+            return { idFactura, idCuota, proveedor, vence: cb.dataset.vence, valor: cb.dataset.valor };
+        });
+}
+
+// ============================================================
+// 3.2 MODAL: CONFIRMAR CUOTAS QUE VENCEN ANTES DE LA FECHA
+// ============================================================
+function confirmarCuotasVencidas(vencidas) {
+    const fecha = val('new-fec-prog');
+    setText('confirm-vencidas-body',
+        `Está incluyendo ${vencidas.length} cuota(s) que vencen antes de la fecha de pago programada (${formatDate(fecha)}):`);
+
+    const lista = document.getElementById('confirm-vencidas-list');
+    if (lista) {
+        lista.innerHTML = vencidas.map(v => `
+            <li>
+                <span class="cv-principal">
+                    <strong>Factura #${escapeHtml(v.idFactura)} · Cuota ${escapeHtml(v.idCuota)}</strong>
+                    <small>${escapeHtml(v.proveedor)} · ${formatCurrency(v.valor)}</small>
+                </span>
+                <span class="cv-vence">Vence ${formatDate(v.vence)}</span>
+            </li>
+        `).join('');
+    }
+
+    show('modal-confirm-vencidas');
+}
+
+function cerrarConfirmVencidas() {
+    hide('modal-confirm-vencidas');
+}
+
+// ============================================================
 // 3. MODAL: NUEVO CRONOGRAMA
 // ============================================================
 function openNewModal() {
@@ -327,12 +711,40 @@ function openNewModal() {
     setVal('new-nom-crono', '');
     setVal('new-fec-prog', '');
     setVal('hid-cuotas-seleccionadas', '');
-    document.querySelectorAll('.cuota-checkbox').forEach(cb => cb.checked = false);
+    pintarCampoFecha('new-fec-prog');
+    document.querySelectorAll('.cuota-checkbox').forEach(cb => { cb.checked = false; });
     updateSeleccionCuotas();
+    marcarCuotasPorFecha();
     show('modal-new-crono');
 }
 
+// Envía el formulario del nuevo cronograma al servidor
+async function enviarNuevoCronograma() {
+    const form = document.getElementById('new-crono-form');
+    const formData = new FormData(form);
+
+    try {
+        const response = await fetch(window.location.href, { method: 'POST', body: formData });
+        const text = await response.text();
+        let result;
+        try { result = JSON.parse(text); } catch (e) { result = { success: false, message: 'Respuesta inválida del servidor' }; }
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            closeNewModal();
+            location.reload();
+        } else if (result.errors && Object.keys(result.errors).length > 0) {
+            Object.entries(result.errors).forEach(([spanId, mensaje]) => showFieldError(spanId, mensaje));
+        } else {
+            showToast(result.message || 'Error al guardar', 'error');
+        }
+    } catch (err) {
+        showToast('Error de conexión', 'error');
+    }
+}
+
 function closeNewModal() {
+    cerrarSelectorFecha();
     hide('modal-new-crono');
 }
 
@@ -344,10 +756,13 @@ function openEditModal(crono) {
     setVal('edit-crono-id', crono.id_cronograma);
     setVal('edit-nom-crono', crono.nom_cronograma);
     setVal('edit-fec-prog', crono.fec_programacion);
+    setVal('edit-fec-original', crono.fec_programacion);
+    pintarCampoFecha('edit-fec-prog');
     show('modal-edit-crono');
 }
 
 function closeEditModal() {
+    cerrarSelectorFecha();
     hide('modal-edit-crono');
 }
 
@@ -581,6 +996,22 @@ function initCronoModule() {
         cb.addEventListener('change', updateSeleccionCuotas);
     });
 
+    // ---------- CALENDARIO DE FECHA DE PAGO ----------
+    initSelectorFecha();
+
+    // Al elegir la fecha programada se marcan las cuotas que vencen antes
+    document.getElementById('new-fec-prog')?.addEventListener('change', marcarCuotasPorFecha);
+
+    // ---------- MODAL: CONFIRMAR CUOTAS QUE VENCEN ANTES ----------
+    document.getElementById('confirm-vencidas-cancel-btn')?.addEventListener('click', cerrarConfirmVencidas);
+    document.getElementById('confirm-vencidas-ok-btn')?.addEventListener('click', () => {
+        cerrarConfirmVencidas();
+        enviarNuevoCronograma();
+    });
+    document.getElementById('modal-confirm-vencidas')?.addEventListener('click', e => {
+        if (e.target.id === 'modal-confirm-vencidas') cerrarConfirmVencidas();
+    });
+
     document.querySelectorAll('.btn-close-new-modal, .btn-cancel-new-modal')
         .forEach(btn => btn.addEventListener('click', closeNewModal));
     document.querySelectorAll('.btn-close-edit-modal, .btn-cancel-edit-modal')
@@ -611,28 +1042,21 @@ function initCronoModule() {
     });
 
     // ---------- SUBMIT: NUEVO CRONOGRAMA ----------
-    document.getElementById('new-btn-save')?.addEventListener('click', async function() {
-        const form = document.getElementById('new-crono-form');
+    // 1) La fecha debe ser día de pago y no festivo (si no, no se envía).
+    // 2) Si hay cuotas seleccionadas que vencen antes de la fecha programada,
+    //    se muestra la advertencia; solo al aceptar se envía.
+    document.getElementById('new-btn-save')?.addEventListener('click', function() {
         clearAllFieldErrors('new');
-        const formData = new FormData(form);
 
-        try {
-            const response = await fetch(window.location.href, { method: 'POST', body: formData });
-            const text = await response.text();
-            let result;
-            try { result = JSON.parse(text); } catch (e) { result = { success: false, message: 'Respuesta inválida del servidor' }; }
+        if (!revisarFechaInput('new-fec-prog', 'err-new-fecha')) {
+            return;
+        }
 
-            if (result.success) {
-                showToast(result.message, 'success');
-                closeNewModal();
-                location.reload();
-            } else if (result.errors && Object.keys(result.errors).length > 0) {
-                Object.entries(result.errors).forEach(([spanId, mensaje]) => showFieldError(spanId, mensaje));
-            } else {
-                showToast(result.message || 'Error al guardar', 'error');
-            }
-        } catch (err) {
-            showToast('Error de conexión', 'error');
+        const vencidas = getCuotasSeleccionadasVencidas();
+        if (vencidas.length > 0) {
+            confirmarCuotasVencidas(vencidas);
+        } else {
+            enviarNuevoCronograma();
         }
     });
 
@@ -640,6 +1064,11 @@ function initCronoModule() {
     document.getElementById('edit-btn-save')?.addEventListener('click', async function() {
         const form = document.getElementById('edit-crono-form');
         clearAllFieldErrors('edit');
+
+        if (!revisarFechaInput('edit-fec-prog', 'err-edit-fecha', val('edit-fec-original'))) {
+            return;
+        }
+
         const formData = new FormData(form);
 
         try {
