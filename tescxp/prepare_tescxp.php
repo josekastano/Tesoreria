@@ -760,23 +760,32 @@ try {
     // tab_det_cronopagos al hacer el borrado lógico del encabezado. En ese
     // caso este NOT EXISTS queda igual de correcto.
     $list_cuotas_pendientes = $pdo->prepare(
-        "SELECT  c.id_factura,
-                 c.id_cuota,
-                 c.fec_vencimiento,
-                 c.val_cuota,
-                 f.id_proveedor,
-                 t.nom_tercero
-           FROM  tab_cuotasxfactura  c
-           JOIN  tab_cuentasxpagar   f ON f.id_factura = c.id_factura
-           JOIN  tab_terceros        t ON t.id_tercero = f.id_proveedor
-          WHERE  c.ind_pagada = FALSE
-            AND  NOT EXISTS (
-                    SELECT 1
-                      FROM tab_det_cronopagos dc
-                     WHERE dc.id_factura = c.id_factura
-                       AND dc.id_cuota   = c.id_cuota
-                 )
-          ORDER BY c.fec_vencimiento"
+    "SELECT  c.id_factura,
+             c.id_cuota,
+             c.fec_vencimiento,
+             c.val_cuota,
+             f.id_proveedor,
+             t.nom_tercero
+       FROM  tab_cuotasxfactura  c
+       JOIN  tab_cuentasxpagar   f ON f.id_factura = c.id_factura
+       JOIN  tab_terceros        t ON t.id_tercero = f.id_proveedor
+      WHERE  c.ind_pagada = FALSE
+        -- solo la primera cuota pendiente de cada factura
+        AND  NOT EXISTS (
+                SELECT 1
+                  FROM tab_cuotasxfactura c2
+                 WHERE c2.id_factura = c.id_factura
+                   AND c2.ind_pagada = FALSE
+                   AND c2.id_cuota   < c.id_cuota
+             )
+        -- y que no esté ya programada en un cronograma
+        AND  NOT EXISTS (
+                SELECT 1
+                  FROM tab_det_cronopagos dc
+                 WHERE dc.id_factura = c.id_factura
+                   AND dc.id_cuota   = c.id_cuota
+             )
+      ORDER BY c.fec_vencimiento"
     );
 
     // ---- INSERT — fun_insert_enc_cronopagos (2 params) ----
