@@ -42,7 +42,7 @@ CREATE TABLE tab_festivos
 (
     id_festivo         DECIMAL(4,0)         NOT NULL CHECK((id_festivo >= 0 AND id_festivo <= 9999)),                                                   -- Identificador del día festivo
     fecha              DATE                 NOT NULL DEFAULT CURRENT_DATE,                                                                              -- Fecha de el día festivo (no se restringe a futuro: debe poder cargarse el calendario completo del año)
-    nom_festivo        VARCHAR(30)          NOT NULL CHECK((LENGTH(nom_festivo) >= 3) AND (LENGTH(nom_festivo) <= 50)) DEFAULT 'Día sin especificar',   -- Nombre descriptivo
+    nom_festivo        VARCHAR(50)          NOT NULL CHECK((LENGTH(nom_festivo) >= 3) AND (LENGTH(nom_festivo) <= 50)) DEFAULT 'Día sin especificar',   -- Nombre descriptivo
     ind_borrado        BOOLEAN              NOT NULL DEFAULT FALSE,                   										                            -- TRUE: Borrado lógico (Inactivo) / FALSE: Activo
      
     PRIMARY KEY (id_festivo)
