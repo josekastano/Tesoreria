@@ -79,29 +79,35 @@ function closeEditModal() {
 window.openEditModal = openEditModal;
 
 // ============================================================
-// 4. FILTROS
+// 4. FILTROS + PAGINACIÓN + ORDENAMIENTO (mismo sistema que Proveedores)
 // ============================================================
-function applyFilters() {
+
+// ---- ESTADO DE PAGINACIÓN ----
+let cuentasPage     = 1;
+let cuentasPageSize = 25; // debe coincidir con el <option selected> de #cuentas-page-size
+
+// Filas que pasan la búsqueda y el filtro Todas/Corrientes/Ahorros (sin tener en cuenta la página)
+function getFilteredCuentaRows() {
     const query  = val('cuenta-search').toLowerCase().trim();
-    const active = document.querySelector('.filter-toggle.active')?.dataset.filter ?? 'all';
-    const rows   = document.querySelectorAll('#cuentas-tbody tr:not(.empty-row)');
-    let visibles = 0;
-
-    rows.forEach(row => {
-        const texto = row.children[0]?.textContent.toLowerCase() + ' '
-                    + row.children[1]?.textContent.toLowerCase() + ' '
-                    + row.children[2]?.textContent.toLowerCase();
-        const matchesQuery  = !query || texto.includes(query);
-        const matchesFilter = active === 'all' || row.dataset.tipo === active;
-        const visible = matchesQuery && matchesFilter;
-        row.style.display = visible ? '' : 'none';
-        if (visible) visibles++;
+    const active = document.querySelector('#mod-bancoxprov .filter-toggle.active')?.dataset.filter ?? 'all';
+    const filas  = Array.from(document.querySelectorAll('#cuentas-tbody tr:not(.empty-row)'));
+    return filas.filter(fila => {
+        const texto = [0, 1, 2].map(i => fila.children[i]?.textContent.toLowerCase() ?? '').join(' ');
+        const pasaTexto = !query || texto.includes(query);
+        const pasaTipo  = active === 'all' || fila.dataset.tipo === active;
+        return pasaTexto && pasaTipo;
     });
+}
 
-    setText('cuentas-count', `${visibles} resultado${visibles !== 1 ? 's' : ''}`);
+// Aplica búsqueda/tipo y vuelve a la primera página
+function applyFilters() {
+    cuentasPage = 1;
+    renderCuentasPage();
 
+    const query    = val('cuenta-search').trim();
+    const active   = document.querySelector('#mod-bancoxprov .filter-toggle.active')?.dataset.filter ?? 'all';
     const clearBtn = document.getElementById('btn-clear-filters');
-    if (clearBtn) clearBtn.style.display = (query || active !== 'all') ? '' : 'none';
+    if (clearBtn) clearBtn.style.display = (query || active !== 'all') ? 'flex' : 'none';
 }
 
 function clearFilters() {
@@ -109,6 +115,123 @@ function clearFilters() {
     document.querySelectorAll('.filter-toggle').forEach(btn => btn.classList.remove('active'));
     document.querySelector('.filter-toggle[data-filter="all"]')?.classList.add('active');
     applyFilters();
+}
+
+// Muestra solo las filas que pasan el filtro Y caen en la página actual
+function renderCuentasPage() {
+    const todas     = Array.from(document.querySelectorAll('#cuentas-tbody tr:not(.empty-row)'));
+    const coinciden = getFilteredCuentaRows();
+    todas.forEach(fila => { fila.style.display = 'none'; });
+
+    const total        = coinciden.length;
+    const esTodos      = cuentasPageSize === 'all';
+    const size         = esTodos ? total : cuentasPageSize;
+    const totalPaginas = size > 0 ? Math.max(1, Math.ceil(total / size)) : 1;
+    if (cuentasPage > totalPaginas) cuentasPage = totalPaginas;
+    if (cuentasPage < 1) cuentasPage = 1;
+
+    const start = esTodos ? 0 : (cuentasPage - 1) * size;
+    const end   = esTodos ? total : Math.min(start + size, total);
+    coinciden.slice(start, end).forEach(fila => { fila.style.display = ''; });
+
+    setText('cuentas-count', `${total} resultado${total !== 1 ? 's' : ''}`);
+
+    const rangeEl = document.getElementById('cuentas-range');
+    if (rangeEl) {
+        rangeEl.textContent = total === 0 ? '0 de 0' : `${start + 1}–${end} de ${total}`;
+    }
+
+    const btnPrev = document.getElementById('cuentas-prev');
+    const btnNext = document.getElementById('cuentas-next');
+    if (btnPrev) btnPrev.disabled = cuentasPage <= 1;
+    if (btnNext) btnNext.disabled = esTodos || cuentasPage >= totalPaginas;
+}
+
+function initCuentasPagination() {
+    document.getElementById('cuentas-page-size')?.addEventListener('change', function() {
+        cuentasPageSize = this.value === 'all' ? 'all' : parseInt(this.value, 10);
+        cuentasPage = 1;
+        renderCuentasPage();
+    });
+    document.getElementById('cuentas-prev')?.addEventListener('click', () => {
+        cuentasPage--;
+        renderCuentasPage();
+    });
+    document.getElementById('cuentas-next')?.addEventListener('click', () => {
+        cuentasPage++;
+        renderCuentasPage();
+    });
+}
+
+// ---- ORDENAMIENTO ASC / DESC ----
+// El texto se compara en español y con "numeric": los números de cuenta
+// quedan en orden natural aunque tengan distinto largo (10 a 16 dígitos)
+// y las tildes no descuadran los nombres.
+let cuentasSortKey = null; // índice de columna, coincide con data-sort-key del <th>
+let cuentasSortDir = 'asc';
+
+function sortCuentaRows(key, type) {
+    const tbody = document.getElementById('cuentas-tbody');
+    if (!tbody) return;
+    const filas = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
+    if (filas.length === 0) return;
+
+    cuentasSortDir = (cuentasSortKey === key && cuentasSortDir === 'asc') ? 'desc' : 'asc';
+    cuentasSortKey = key;
+
+    const getValor = fila => {
+        const celda = fila.cells[Number(key)];
+        const crudo = celda?.dataset.sort;
+        const base  = crudo !== undefined ? crudo : (celda?.textContent.trim() ?? '');
+        return type === 'number' ? (parseFloat(base) || 0) : base.toLowerCase();
+    };
+
+    filas.sort((a, b) => {
+        const va  = getValor(a);
+        const vb  = getValor(b);
+        const cmp = type === 'number' ? (va - vb) : va.localeCompare(vb, 'es', { numeric: true });
+        return cuentasSortDir === 'asc' ? cmp : -cmp;
+    });
+    filas.forEach(fila => tbody.appendChild(fila));
+
+    document.querySelectorAll('#mod-bancoxprov .data-table th.sortable').forEach(th => {
+        const icon   = th.querySelector('.sort-icon');
+        const activo = th.dataset.sortKey === key;
+        th.classList.toggle('sort-active', activo);
+        if (icon) {
+            icon.className = activo
+                ? `fas sort-icon ${cuentasSortDir === 'asc' ? 'fa-caret-up' : 'fa-caret-down'}`
+                : 'fas fa-caret-down sort-icon';
+        }
+    });
+
+    cuentasPage = 1;
+    renderCuentasPage();
+}
+
+function initCuentasSorting() {
+    document.querySelectorAll('#mod-bancoxprov .data-table th.sortable').forEach(th => {
+        th.addEventListener('click', () => sortCuentaRows(th.dataset.sortKey, th.dataset.sortType));
+    });
+}
+
+// ---- ALTO DINÁMICO DE LA TABLA (evita el doble scroll) ----
+function ajustarAlturaTablaCuentas() {
+    const scrollBox = document.getElementById('cuentas-table-scroll');
+    if (!scrollBox) return;
+    const footer = document.querySelector('#mod-bancoxprov .table-footer');
+    const top = scrollBox.getBoundingClientRect().top;
+    const alturaFooter = footer ? footer.offsetHeight : 0;
+
+    let margenInferior = 16;
+    const contentCard = scrollBox.closest('.content-card') || document.querySelector('.content-card');
+    if (contentCard) {
+        const cs = getComputedStyle(contentCard);
+        margenInferior += (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.marginBottom) || 0);
+    }
+
+    const disponible = window.innerHeight - top - alturaFooter - margenInferior;
+    scrollBox.style.maxHeight = Math.max(220, disponible) + 'px';
 }
 
 // ============================================================
@@ -183,17 +306,21 @@ function initBancoxprovModule() {
         });
     });
 
+    // ---------- PAGINACIÓN Y ORDENAMIENTO ----------
+    initCuentasPagination();
+    initCuentasSorting();
+    renderCuentasPage();
+    ajustarAlturaTablaCuentas();
+    window.addEventListener('resize', ajustarAlturaTablaCuentas);
+
     document.querySelectorAll('.btn-close-new-modal, .btn-cancel-new-modal')
         .forEach(btn => btn.addEventListener('click', closeNewModal));
     document.querySelectorAll('.btn-close-edit-modal, .btn-cancel-edit-modal')
         .forEach(btn => btn.addEventListener('click', closeEditModal));
 
-    document.getElementById('modal-new-cuenta')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-new-cuenta') closeNewModal();
-    });
-    document.getElementById('modal-edit-cuenta')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-edit-cuenta') closeEditModal();
-    });
+    // Los modales NO se cierran al hacer clic por fuera (en el fondo oscuro):
+    // así no se pierde lo que se lleva escrito en un formulario por un clic
+    // accidental. Se cierran solo con la X, "Cancelar" o "Cerrar".
 
     // ---------- MODAL: CONFIRMAR ELIMINACIÓN ----------
     document.getElementById('confirm-eliminar-cancel-btn')?.addEventListener('click', cerrarConfirmEliminar);
@@ -201,9 +328,6 @@ function initBancoxprovModule() {
         const accion = _confirmDeleteAction;
         cerrarConfirmEliminar();
         if (typeof accion === 'function') accion();
-    });
-    document.getElementById('modal-confirm-eliminar')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-confirm-eliminar') cerrarConfirmEliminar();
     });
 
     // ---------- SUBMIT: NUEVA CUENTA ----------

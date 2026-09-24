@@ -360,29 +360,155 @@ function closeEditModal() {
 }
 
 // ============================================================
-// 4. FILTRO DE BÚSQUEDA
+// 4. FILTRO DE BÚSQUEDA + PAGINACIÓN (mismo sistema que Proveedores)
 // ============================================================
-function applyFilters() {
+
+// ---- ESTADO DE PAGINACIÓN ----
+let festivosPage     = 1;
+let festivosPageSize = 25; // debe coincidir con el <option selected> de #festivos-page-size
+
+// Filas que pasan el filtro de búsqueda (sin tener en cuenta la página)
+function getFilteredFestivoRows() {
     const query = val('festivo-search').toLowerCase().trim();
-    const rows  = document.querySelectorAll('#festivos-tbody tr:not(.empty-row)');
-    let visibles = 0;
-
-    rows.forEach(row => {
-        const nombre = row.children[2]?.textContent.toLowerCase() ?? '';
-        const matches = !query || nombre.includes(query);
-        row.style.display = matches ? '' : 'none';
-        if (matches) visibles++;
+    const filas = Array.from(document.querySelectorAll('#festivos-tbody tr:not(.empty-row)'));
+    return filas.filter(fila => {
+        const nombre = fila.children[2]?.textContent.toLowerCase() ?? '';
+        return !query || nombre.includes(query);
     });
+}
 
-    setText('festivos-count', `${visibles} resultado${visibles !== 1 ? 's' : ''}`);
+// Aplica el filtro de búsqueda y vuelve a la primera página
+function applyFilters() {
+    festivosPage = 1;
+    renderFestivosPage();
 
+    const query    = val('festivo-search').trim();
     const clearBtn = document.getElementById('btn-clear-filters');
-    if (clearBtn) clearBtn.style.display = query ? '' : 'none';
+    if (clearBtn) clearBtn.style.display = query ? 'flex' : 'none';
 }
 
 function clearFilters() {
     setVal('festivo-search', '');
     applyFilters();
+}
+
+// Muestra solo las filas que pasan el filtro Y caen en la página actual
+function renderFestivosPage() {
+    const todas     = Array.from(document.querySelectorAll('#festivos-tbody tr:not(.empty-row)'));
+    const coinciden = getFilteredFestivoRows();
+    todas.forEach(fila => { fila.style.display = 'none'; });
+
+    const total        = coinciden.length;
+    const esTodos      = festivosPageSize === 'all';
+    const size         = esTodos ? total : festivosPageSize;
+    const totalPaginas = size > 0 ? Math.max(1, Math.ceil(total / size)) : 1;
+    if (festivosPage > totalPaginas) festivosPage = totalPaginas;
+    if (festivosPage < 1) festivosPage = 1;
+
+    const start = esTodos ? 0 : (festivosPage - 1) * size;
+    const end   = esTodos ? total : Math.min(start + size, total);
+    coinciden.slice(start, end).forEach(fila => { fila.style.display = ''; });
+
+    setText('festivos-count', `${total} resultado${total !== 1 ? 's' : ''}`);
+
+    const rangeEl = document.getElementById('festivos-range');
+    if (rangeEl) {
+        rangeEl.textContent = total === 0 ? '0 de 0' : `${start + 1}–${end} de ${total}`;
+    }
+
+    const btnPrev = document.getElementById('festivos-prev');
+    const btnNext = document.getElementById('festivos-next');
+    if (btnPrev) btnPrev.disabled = festivosPage <= 1;
+    if (btnNext) btnNext.disabled = esTodos || festivosPage >= totalPaginas;
+}
+
+// ---- ORDENAMIENTO ASC / DESC (mismo sistema que Proveedores) ----
+// La fecha se ordena por su valor 'YYYY-MM-DD' guardado en data-sort,
+// no por el texto 'dd/mm/aaaa' que se ve en pantalla.
+let festivosSortKey = null; // índice de columna, coincide con data-sort-key del <th>
+let festivosSortDir = 'asc';
+
+function sortFestivoRows(key, type) {
+    const tbody = document.getElementById('festivos-tbody');
+    if (!tbody) return;
+    const filas = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
+    if (filas.length === 0) return;
+
+    festivosSortDir = (festivosSortKey === key && festivosSortDir === 'asc') ? 'desc' : 'asc';
+    festivosSortKey = key;
+
+    const getValor = fila => {
+        const celda = fila.cells[Number(key)];
+        const crudo = celda?.dataset.sort;
+        const base  = crudo !== undefined ? crudo : (celda?.textContent.trim() ?? '');
+        return type === 'number' ? (parseFloat(base) || 0) : base.toLowerCase();
+    };
+
+    filas.sort((a, b) => {
+        const va  = getValor(a);
+        const vb  = getValor(b);
+        const cmp = type === 'number' ? (va - vb) : va.localeCompare(vb, 'es');
+        return festivosSortDir === 'asc' ? cmp : -cmp;
+    });
+    filas.forEach(fila => tbody.appendChild(fila));
+
+    document.querySelectorAll('#mod-festivos .data-table th.sortable').forEach(th => {
+        const icon   = th.querySelector('.sort-icon');
+        const activo = th.dataset.sortKey === key;
+        th.classList.toggle('sort-active', activo);
+        if (icon) {
+            icon.className = activo
+                ? `fas sort-icon ${festivosSortDir === 'asc' ? 'fa-caret-up' : 'fa-caret-down'}`
+                : 'fas fa-caret-down sort-icon';
+        }
+    });
+
+    festivosPage = 1;
+    renderFestivosPage();
+}
+
+function initFestivosSorting() {
+    document.querySelectorAll('#mod-festivos .data-table th.sortable').forEach(th => {
+        th.addEventListener('click', () => sortFestivoRows(th.dataset.sortKey, th.dataset.sortType));
+    });
+}
+
+function initFestivosPagination() {
+    document.getElementById('festivos-page-size')?.addEventListener('change', function() {
+        festivosPageSize = this.value === 'all' ? 'all' : parseInt(this.value, 10);
+        festivosPage = 1;
+        renderFestivosPage();
+    });
+    document.getElementById('festivos-prev')?.addEventListener('click', () => {
+        festivosPage--;
+        renderFestivosPage();
+    });
+    document.getElementById('festivos-next')?.addEventListener('click', () => {
+        festivosPage++;
+        renderFestivosPage();
+    });
+}
+
+// ---- ALTO DINÁMICO DE LA TABLA (evita el doble scroll) ----
+// Mide cuánto espacio queda entre la tabla y el borde inferior de la
+// ventana y lo usa como max-height del scroll interno, para que la tabla
+// no empuje la altura de la página y aparezca también el scroll grande.
+function ajustarAlturaTablaFestivos() {
+    const scrollBox = document.getElementById('festivos-table-scroll');
+    if (!scrollBox) return;
+    const footer = document.querySelector('#mod-festivos .table-footer');
+    const top = scrollBox.getBoundingClientRect().top;
+    const alturaFooter = footer ? footer.offsetHeight : 0;
+
+    let margenInferior = 16;
+    const contentCard = scrollBox.closest('.content-card') || document.querySelector('.content-card');
+    if (contentCard) {
+        const cs = getComputedStyle(contentCard);
+        margenInferior += (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.marginBottom) || 0);
+    }
+
+    const disponible = window.innerHeight - top - alturaFooter - margenInferior;
+    scrollBox.style.maxHeight = Math.max(220, disponible) + 'px';
 }
 
 // ============================================================
@@ -454,18 +580,21 @@ function initFestivoModule() {
     document.getElementById('festivo-search')?.addEventListener('input', applyFilters);
     document.getElementById('btn-clear-filters')?.addEventListener('click', clearFilters);
 
+    // ---------- PAGINACIÓN ----------
+    initFestivosPagination();
+    initFestivosSorting();
+    renderFestivosPage();
+    ajustarAlturaTablaFestivos();
+    window.addEventListener('resize', ajustarAlturaTablaFestivos);
+
     document.querySelectorAll('.btn-close-new-modal, .btn-cancel-new-modal')
         .forEach(btn => btn.addEventListener('click', closeNewModal));
     document.querySelectorAll('.btn-close-edit-modal, .btn-cancel-edit-modal')
         .forEach(btn => btn.addEventListener('click', closeEditModal));
 
-    // Cerrar modales al hacer clic en el overlay
-    document.getElementById('modal-new-festivo')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-new-festivo') closeNewModal();
-    });
-    document.getElementById('modal-edit-festivo')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-edit-festivo') closeEditModal();
-    });
+    // Los modales NO se cierran al hacer clic por fuera (en el fondo oscuro):
+    // así no se pierde lo que se lleva escrito en un formulario por un clic
+    // accidental. Se cierran solo con la X, "Cancelar" o "Cerrar".
 
     // ---------- MODAL: CONFIRMAR ELIMINACIÓN ----------
     document.getElementById('confirm-eliminar-cancel-btn')?.addEventListener('click', cerrarConfirmEliminar);
@@ -473,9 +602,6 @@ function initFestivoModule() {
         const accion = _confirmDeleteAction;
         cerrarConfirmEliminar();
         if (typeof accion === 'function') accion();
-    });
-    document.getElementById('modal-confirm-eliminar')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-confirm-eliminar') cerrarConfirmEliminar();
     });
 
     // ---------- SUBMIT: NUEVO FESTIVO ----------

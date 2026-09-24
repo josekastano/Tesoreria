@@ -232,17 +232,34 @@ ob_start();
         <button id="btn-clear-filters" class="btn-clear-filter" style="display:none">
             <i class="fas fa-times"></i> Limpiar
         </button>
+        <div class="pagination-size">
+            <label for="motivos-page-size">Filas por página</label>
+            <select id="motivos-page-size">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="all">Todos</option>
+            </select>
+        </div>
         <span class="filter-info" id="motivos-count"><?= $total ?> resultado<?= $total !== 1 ? 's' : '' ?></span>
     </div>
 
     <!-- TABLA -->
     <div class="table-container">
+      <div class="table-scroll" id="motivos-table-scroll">
         <table class="data-table">
+            <!-- Anchos fijos: las columnas no se mueven al ordenar o cambiar de página -->
+            <colgroup>
+                <col class="col-id">
+                <col class="col-descripcion">
+                <col class="col-codigo">
+                <col class="col-acciones">
+            </colgroup>
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Descripción del Motivo</th>
-                    <th>Código Bancario</th>
+                    <th class="sortable" data-sort-key="0" data-sort-type="number">ID <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="1" data-sort-type="text">Descripción del Motivo <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="2" data-sort-type="text">Código Bancario <i class="fas fa-caret-down sort-icon"></i></th>
                     <th class="text-center">Acciones</th>
                 </tr>
             </thead>
@@ -263,9 +280,9 @@ ob_start();
                     $filtro = $cod !== '' ? 'con-codigo' : 'sin-codigo';
                 ?>
                 <tr data-tipo="<?= $filtro ?>">
-                    <td><strong><?= htmlspecialchars($m['id_motivo_rechazo']) ?></strong></td>
-                    <td><?= htmlspecialchars($m['des_motivo']) ?></td>
-                    <td>
+                    <td data-sort="<?= (int)$m['id_motivo_rechazo'] ?>"><strong><?= htmlspecialchars($m['id_motivo_rechazo']) ?></strong></td>
+                    <td data-sort="<?= htmlspecialchars($m['des_motivo']) ?>"><?= htmlspecialchars($m['des_motivo']) ?></td>
+                    <td data-sort="<?= htmlspecialchars($cod) ?>">
                         <?php if ($cod !== ''): ?>
                             <span class="cod-bancario"><?= htmlspecialchars($cod) ?></span>
                         <?php else: ?>
@@ -287,6 +304,20 @@ ob_start();
             <?php endif; ?>
             </tbody>
         </table>
+      </div>
+
+        <!-- PAGINACIÓN -->
+        <div class="table-footer">
+            <div class="pagination-nav">
+                <span class="pagination-range" id="motivos-range">0 de 0</span>
+                <button type="button" id="motivos-prev" class="pagination-btn" disabled aria-label="Página anterior">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button type="button" id="motivos-next" class="pagination-btn" disabled aria-label="Página siguiente">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 

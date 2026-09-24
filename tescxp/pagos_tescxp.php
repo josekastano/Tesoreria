@@ -386,20 +386,41 @@ ob_start();
         <button id="btn-clear-filters" class="btn-clear-filter" style="display:none">
             <i class="fas fa-times"></i> Limpiar
         </button>
+        <div class="pagination-size">
+            <label for="pagos-page-size">Filas por página</label>
+            <select id="pagos-page-size">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="all">Todos</option>
+            </select>
+        </div>
         <span class="filter-info" id="pagos-count"><?= $total ?> resultado<?= $total !== 1 ? 's' : '' ?></span>
     </div>
 
     <!-- TABLA -->
     <div class="table-container">
+      <div class="table-scroll" id="pagos-table-scroll">
         <table class="data-table">
+            <!-- Anchos fijos: las columnas no se mueven al ordenar o cambiar de página -->
+            <colgroup>
+                <col class="col-pago">
+                <col class="col-factura">
+                <col class="col-origen">
+                <col class="col-fecha">
+                <col class="col-valor">
+                <col class="col-referencia">
+                <col class="col-estado">
+                <col class="col-acciones">
+            </colgroup>
             <thead>
                 <tr>
-                    <th>Pago</th>
-                    <th>Factura / Cuota</th>
-                    <th>Origen</th>
-                    <th>Fecha de Pago</th>
-                    <th class="text-right">Valor</th>
-                    <th>Referencia Bancaria</th>
+                    <th class="sortable" data-sort-key="0" data-sort-type="number">Pago <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="1" data-sort-type="number">Factura / Cuota <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="2" data-sort-type="text">Origen <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="3" data-sort-type="text">Fecha de Pago <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="text-right sortable" data-sort-key="4" data-sort-type="number">Valor <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="5" data-sort-type="text">Referencia Bancaria <i class="fas fa-caret-down sort-icon"></i></th>
                     <th class="text-center">Estado</th>
                     <th class="text-center">Acciones</th>
                 </tr>
@@ -425,21 +446,21 @@ ob_start();
                     data-estado="<?= htmlspecialchars($p['estado_pago']) ?>"
                     data-fecha="<?= htmlspecialchars($p['fec_pago']) ?>"
                     class="<?= $rechazado ? 'rechazado' : '' ?>">
-                    <td><strong>#<?= (int)$p['id_pago'] ?></strong></td>
-                    <td>
+                    <td data-sort="<?= (int)$p['id_pago'] ?>"><strong>#<?= (int)$p['id_pago'] ?></strong></td>
+                    <td data-sort="<?= (int)$p['id_factura'] * 1000 + (int)$p['id_cuota'] ?>">
                         Fact. #<?= (int)$p['id_factura'] ?> — Cuota <?= (int)$p['id_cuota'] ?><br>
                         <small style="color:#94a3b8;font-size:11px"><?= htmlspecialchars($p['nom_tercero'] ?? '') ?></small>
                     </td>
-                    <td>
+                    <td data-sort="<?= htmlspecialchars($archivo) ?>">
                         <?php if ($archivo !== ''): ?>
                             <?= htmlspecialchars($archivo) ?>
                         <?php else: ?>
                             <span class="origen-manual">Pago manual</span>
                         <?php endif; ?>
                     </td>
-                    <td><?= fecha_larga($p['fec_pago']) ?></td>
-                    <td class="text-right">$<?= number_format((float)$p['val_pago'], 0, ',', '.') ?></td>
-                    <td class="ref-bancaria<?= $ref === '' ? ' ref-vacia' : '' ?>">
+                    <td data-sort="<?= htmlspecialchars((string)($p['fec_pago'] ?? '')) ?>"><?= fecha_larga($p['fec_pago']) ?></td>
+                    <td class="text-right" data-sort="<?= (float)$p['val_pago'] ?>">$<?= number_format((float)$p['val_pago'], 0, ',', '.') ?></td>
+                    <td class="ref-bancaria<?= $ref === '' ? ' ref-vacia' : '' ?>" data-sort="<?= htmlspecialchars($ref) ?>">
                         <?= $ref !== '' ? htmlspecialchars($ref) : 'Sin referencia' ?>
                     </td>
                     <td class="text-center"><?= estado_badge($p['estado_pago']) ?></td>
@@ -454,6 +475,20 @@ ob_start();
             <?php endif; ?>
             </tbody>
         </table>
+      </div>
+
+        <!-- PAGINACIÓN -->
+        <div class="table-footer">
+            <div class="pagination-nav">
+                <span class="pagination-range" id="pagos-range">0 de 0</span>
+                <button type="button" id="pagos-prev" class="pagination-btn" disabled aria-label="Página anterior">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button type="button" id="pagos-next" class="pagination-btn" disabled aria-label="Página siguiente">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 

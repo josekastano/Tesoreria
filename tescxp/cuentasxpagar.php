@@ -285,22 +285,44 @@ ob_start();
         <button id="btn-clear-filters" class="btn-clear-filter" style="display:none">
             <i class="fas fa-times"></i> Limpiar
         </button>
+        <div class="pagination-size">
+            <label for="facturas-page-size">Filas por página</label>
+            <select id="facturas-page-size">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="all">Todos</option>
+            </select>
+        </div>
         <span class="filter-info" id="facturas-count"><?= $total ?> resultado<?= $total !== 1 ? 's' : '' ?></span>
     </div>
 
     <!-- TABLA -->
     <div class="table-container">
+      <div class="table-scroll" id="facturas-table-scroll">
         <table class="data-table">
+            <!-- Anchos fijos: las columnas no se mueven al ordenar o cambiar de página -->
+            <colgroup>
+                <col class="col-factura">
+                <col class="col-oc">
+                <col class="col-proveedor">
+                <col class="col-emision">
+                <col class="col-vencimiento">
+                <col class="col-valor">
+                <col class="col-saldo">
+                <col class="col-cuotas">
+                <col class="col-estado">
+            </colgroup>
             <thead>
                 <tr>
-                    <th>Factura</th>
-                    <th>Orden de Compra</th>
-                    <th>Proveedor</th>
-                    <th>Emisión</th>
-                    <th>Vencimiento</th>
-                    <th class="text-right">Valor</th>
-                    <th class="text-right">Saldo</th>
-                    <th class="text-center">Cuotas</th>
+                    <th class="sortable" data-sort-key="0" data-sort-type="number">Factura <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="1" data-sort-type="number">Orden de Compra <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="2" data-sort-type="text">Proveedor <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="3" data-sort-type="text">Emisión <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="4" data-sort-type="text">Vencimiento <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="text-right sortable" data-sort-key="5" data-sort-type="number">Valor <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="text-right sortable" data-sort-key="6" data-sort-type="number">Saldo <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="text-center sortable" data-sort-key="7" data-sort-type="number">Cuotas <i class="fas fa-caret-down sort-icon"></i></th>
                     <th class="text-center">Estado</th>
                 </tr>
             </thead>
@@ -334,29 +356,43 @@ ob_start();
                     $id_fact_esc = htmlspecialchars($f['id_factura']);
                 ?>
                 <tr data-estado="<?= $filtro_estado ?>" onclick="openDetailModal(<?= $id_fact_esc ?>)">
-                    <td><strong>#<?= $id_fact_esc ?></strong></td>
-                    <td>
+                    <td data-sort="<?= (int)$f['id_factura'] ?>"><strong>#<?= $id_fact_esc ?></strong></td>
+                    <td data-sort="<?= !empty($f['id_ordencompra']) ? (int)$f['id_ordencompra'] : 0 ?>">
                         <?php if (!empty($f['id_ordencompra'])): ?>
                             <span class="oc-tag">OC #<?= (int)$f['id_ordencompra'] ?></span>
                         <?php else: ?>
                             <span class="oc-directa">Compra directa</span>
                         <?php endif; ?>
                     </td>
-                    <td>
+                    <td data-sort="<?= htmlspecialchars($f['nom_tercero']) ?>">
                         <?= htmlspecialchars($f['nom_tercero']) ?><br>
                         <small style="color:#94a3b8;font-size:11px"><?= htmlspecialchars($f['id_proveedor']) ?></small>
                     </td>
-                    <td><?= htmlspecialchars(date('d/m/Y', strtotime($f['fec_emision']))) ?></td>
-                    <td><?= htmlspecialchars(date('d/m/Y', strtotime($f['fec_vencimiento']))) ?></td>
-                    <td>$<?= number_format((float)$f['val_factura'], 0, ',', '.') ?></td>
-                    <td>$<?= number_format((float)$f['val_saldo'], 0, ',', '.') ?></td>
-                    <td class="text-center"><?= htmlspecialchars($f['num_cuotas']) ?></td>
+                    <td data-sort="<?= htmlspecialchars(date('Y-m-d', strtotime($f['fec_emision']))) ?>"><?= htmlspecialchars(date('d/m/Y', strtotime($f['fec_emision']))) ?></td>
+                    <td data-sort="<?= htmlspecialchars(date('Y-m-d', strtotime($f['fec_vencimiento']))) ?>"><?= htmlspecialchars(date('d/m/Y', strtotime($f['fec_vencimiento']))) ?></td>
+                    <td class="text-right" data-sort="<?= (float)$f['val_factura'] ?>">$<?= number_format((float)$f['val_factura'], 0, ',', '.') ?></td>
+                    <td class="text-right" data-sort="<?= (float)$f['val_saldo'] ?>">$<?= number_format((float)$f['val_saldo'], 0, ',', '.') ?></td>
+                    <td class="text-center" data-sort="<?= (int)$f['num_cuotas'] ?>"><?= htmlspecialchars($f['num_cuotas']) ?></td>
                     <td class="text-center"><?= $badge ?></td>
                 </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
             </tbody>
         </table>
+      </div>
+
+        <!-- PAGINACIÓN -->
+        <div class="table-footer">
+            <div class="pagination-nav">
+                <span class="pagination-range" id="facturas-range">0 de 0</span>
+                <button type="button" id="facturas-prev" class="pagination-btn" disabled aria-label="Página anterior">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button type="button" id="facturas-next" class="pagination-btn" disabled aria-label="Página siguiente">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 

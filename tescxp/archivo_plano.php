@@ -1,4 +1,3 @@
-
 <?php
 // ========== PERSONALIZAR PÁGINA ==========
 $pageTitle        = 'ERP ADSO — Tesorería';
@@ -601,18 +600,37 @@ ob_start();
         <button id="btn-clear-filters" class="btn-clear-filter" style="display:none">
             <i class="fas fa-times"></i> Limpiar
         </button>
+        <div class="pagination-size">
+            <label for="archivos-page-size">Filas por página</label>
+            <select id="archivos-page-size">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="all">Todos</option>
+            </select>
+        </div>
         <span class="filter-info" id="archivos-count"><?= $total ?> resultado<?= $total !== 1 ? 's' : '' ?></span>
     </div>
 
     <!-- TABLA -->
     <div class="table-container">
+      <div class="table-scroll" id="archivos-table-scroll">
         <table class="data-table">
+            <!-- Anchos fijos: las columnas no se mueven al ordenar o cambiar de página -->
+            <colgroup>
+                <col class="col-archivo">
+                <col class="col-cronograma">
+                <col class="col-banco">
+                <col class="col-generacion">
+                <col class="col-estado">
+                <col class="col-acciones">
+            </colgroup>
             <thead>
                 <tr>
-                    <th>Archivo</th>
-                    <th>Cronograma</th>
-                    <th>Banco Destino</th>
-                    <th>Generación</th>
+                    <th class="sortable" data-sort-key="0" data-sort-type="text">Archivo <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="1" data-sort-type="text">Cronograma <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="2" data-sort-type="text">Banco Destino <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="3" data-sort-type="text">Generación <i class="fas fa-caret-down sort-icon"></i></th>
                     <th class="text-center">Estado</th>
                     <th class="text-center">Acciones</th>
                 </tr>
@@ -639,13 +657,13 @@ ob_start();
                     $fecha_gen   = $a['fec_generacion'] ? date('d/m/Y', strtotime($a['fec_generacion'])) : '—';
                 ?>
                 <tr data-estado="<?= $filtro ?>" onclick='openDetailModal(<?= json_encode($a) ?>)'>
-                    <td>
+                    <td data-sort="<?= htmlspecialchars($a['nom_archivo']) ?>">
                         <strong><?= htmlspecialchars($a['nom_archivo']) ?></strong><br>
                         <small style="color:#94a3b8;font-size:11px">#<?= $id_esc ?></small>
                     </td>
-                    <td><?= htmlspecialchars($a['nom_cronograma']) ?></td>
-                    <td><?= htmlspecialchars($a['nom_banco']) ?></td>
-                    <td><?= htmlspecialchars($fecha_gen) ?></td>
+                    <td data-sort="<?= htmlspecialchars($a['nom_cronograma']) ?>"><?= htmlspecialchars($a['nom_cronograma']) ?></td>
+                    <td data-sort="<?= htmlspecialchars($a['nom_banco']) ?>"><?= htmlspecialchars($a['nom_banco']) ?></td>
+                    <td data-sort="<?= $a['fec_generacion'] ? htmlspecialchars(date('Y-m-d', strtotime($a['fec_generacion']))) : '' ?>"><?= htmlspecialchars($fecha_gen) ?></td>
                     <td class="text-center"><?= $badge ?></td>
                     <td class="text-center" onclick="event.stopPropagation()">
                         <button class="btn-icon-sm view" onclick="descargarArchivoPlano('<?= $id_esc ?>')" title="Descargar CSV">
@@ -660,6 +678,20 @@ ob_start();
             <?php endif; ?>
             </tbody>
         </table>
+      </div>
+
+        <!-- PAGINACIÓN -->
+        <div class="table-footer">
+            <div class="pagination-nav">
+                <span class="pagination-range" id="archivos-range">0 de 0</span>
+                <button type="button" id="archivos-prev" class="pagination-btn" disabled aria-label="Página anterior">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button type="button" id="archivos-next" class="pagination-btn" disabled aria-label="Página siguiente">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 

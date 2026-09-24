@@ -75,36 +75,158 @@ function closeEditModal() {
 window.openEditModal = openEditModal;
 
 // ============================================================
-// 4. FILTROS
+// 4. FILTROS + PAGINACIÓN + ORDENAMIENTO (mismo sistema que Proveedores)
 // ============================================================
-function applyFilters() {
+
+// ---- ESTADO DE PAGINACIÓN ----
+let motivosPage     = 1;
+let motivosPageSize = 25; // debe coincidir con el <option selected> de #motivos-page-size
+
+// Filas que pasan la búsqueda y el filtro Todos/Con código/Sin código (sin tener en cuenta la página)
+function getFilteredMotivoRows() {
     const query  = val('motivo-search').toLowerCase().trim();
-    const active = document.querySelector('.filter-toggle.active')?.dataset.filter ?? 'all';
-    const rows   = document.querySelectorAll('#motivos-tbody tr:not(.empty-row)');
-    let visibles = 0;
-
-    rows.forEach(row => {
-        const texto = (row.children[0]?.textContent ?? '').toLowerCase() + ' '
-                    + (row.children[1]?.textContent ?? '').toLowerCase() + ' '
-                    + (row.children[2]?.textContent ?? '').toLowerCase();
-        const matchesQuery  = !query || texto.includes(query);
-        const matchesFilter = active === 'all' || row.dataset.tipo === active;
-        const visible = matchesQuery && matchesFilter;
-        row.style.display = visible ? '' : 'none';
-        if (visible) visibles++;
+    const active = document.querySelector('#mod-motivos .filter-toggle.active')?.dataset.filter ?? 'all';
+    const filas  = Array.from(document.querySelectorAll('#motivos-tbody tr:not(.empty-row)'));
+    return filas.filter(fila => {
+        const texto = [0, 1, 2].map(i => (fila.children[i]?.textContent ?? '').toLowerCase()).join(' ');
+        const pasaTexto = !query || texto.includes(query);
+        const pasaTipo  = active === 'all' || fila.dataset.tipo === active;
+        return pasaTexto && pasaTipo;
     });
+}
 
-    setText('motivos-count', `${visibles} resultado${visibles !== 1 ? 's' : ''}`);
+// Aplica búsqueda/tipo y vuelve a la primera página
+function applyFilters() {
+    motivosPage = 1;
+    renderMotivosPage();
 
+    const query    = val('motivo-search').trim();
+    const active   = document.querySelector('#mod-motivos .filter-toggle.active')?.dataset.filter ?? 'all';
     const clearBtn = document.getElementById('btn-clear-filters');
-    if (clearBtn) clearBtn.style.display = (query || active !== 'all') ? '' : 'none';
+    if (clearBtn) clearBtn.style.display = (query || active !== 'all') ? 'flex' : 'none';
 }
 
 function clearFilters() {
     setVal('motivo-search', '');
-    document.querySelectorAll('.filter-toggle').forEach(btn => btn.classList.remove('active'));
-    document.querySelector('.filter-toggle[data-filter="all"]')?.classList.add('active');
+    document.querySelectorAll('#mod-motivos .filter-toggle').forEach(btn => btn.classList.remove('active'));
+    document.querySelector('#mod-motivos .filter-toggle[data-filter="all"]')?.classList.add('active');
     applyFilters();
+}
+
+// Muestra solo las filas que pasan el filtro Y caen en la página actual
+function renderMotivosPage() {
+    const todas     = Array.from(document.querySelectorAll('#motivos-tbody tr:not(.empty-row)'));
+    const coinciden = getFilteredMotivoRows();
+    todas.forEach(fila => { fila.style.display = 'none'; });
+
+    const total        = coinciden.length;
+    const esTodos      = motivosPageSize === 'all';
+    const size         = esTodos ? total : motivosPageSize;
+    const totalPaginas = size > 0 ? Math.max(1, Math.ceil(total / size)) : 1;
+    if (motivosPage > totalPaginas) motivosPage = totalPaginas;
+    if (motivosPage < 1) motivosPage = 1;
+
+    const start = esTodos ? 0 : (motivosPage - 1) * size;
+    const end   = esTodos ? total : Math.min(start + size, total);
+    coinciden.slice(start, end).forEach(fila => { fila.style.display = ''; });
+
+    setText('motivos-count', `${total} resultado${total !== 1 ? 's' : ''}`);
+
+    const rangeEl = document.getElementById('motivos-range');
+    if (rangeEl) {
+        rangeEl.textContent = total === 0 ? '0 de 0' : `${start + 1}–${end} de ${total}`;
+    }
+
+    const btnPrev = document.getElementById('motivos-prev');
+    const btnNext = document.getElementById('motivos-next');
+    if (btnPrev) btnPrev.disabled = motivosPage <= 1;
+    if (btnNext) btnNext.disabled = esTodos || motivosPage >= totalPaginas;
+}
+
+function initMotivosPagination() {
+    document.getElementById('motivos-page-size')?.addEventListener('change', function() {
+        motivosPageSize = this.value === 'all' ? 'all' : parseInt(this.value, 10);
+        motivosPage = 1;
+        renderMotivosPage();
+    });
+    document.getElementById('motivos-prev')?.addEventListener('click', () => {
+        motivosPage--;
+        renderMotivosPage();
+    });
+    document.getElementById('motivos-next')?.addEventListener('click', () => {
+        motivosPage++;
+        renderMotivosPage();
+    });
+}
+
+// ---- ORDENAMIENTO ASC / DESC ----
+// El código bancario se compara con "numeric" (R2 < R10) y los motivos
+// sin código quedan juntos al principio (asc) o al final (desc).
+let motivosSortKey = null; // índice de columna, coincide con data-sort-key del <th>
+let motivosSortDir = 'asc';
+
+function sortMotivoRows(key, type) {
+    const tbody = document.getElementById('motivos-tbody');
+    if (!tbody) return;
+    const filas = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
+    if (filas.length === 0) return;
+
+    motivosSortDir = (motivosSortKey === key && motivosSortDir === 'asc') ? 'desc' : 'asc';
+    motivosSortKey = key;
+
+    const getValor = fila => {
+        const celda = fila.cells[Number(key)];
+        const crudo = celda?.dataset.sort;
+        const base  = crudo !== undefined ? crudo : (celda?.textContent.trim() ?? '');
+        return type === 'number' ? (parseFloat(base) || 0) : base.toLowerCase();
+    };
+
+    filas.sort((a, b) => {
+        const va  = getValor(a);
+        const vb  = getValor(b);
+        const cmp = type === 'number' ? (va - vb) : va.localeCompare(vb, 'es', { numeric: true });
+        return motivosSortDir === 'asc' ? cmp : -cmp;
+    });
+    filas.forEach(fila => tbody.appendChild(fila));
+
+    document.querySelectorAll('#mod-motivos .data-table th.sortable').forEach(th => {
+        const icon   = th.querySelector('.sort-icon');
+        const activo = th.dataset.sortKey === key;
+        th.classList.toggle('sort-active', activo);
+        if (icon) {
+            icon.className = activo
+                ? `fas sort-icon ${motivosSortDir === 'asc' ? 'fa-caret-up' : 'fa-caret-down'}`
+                : 'fas fa-caret-down sort-icon';
+        }
+    });
+
+    motivosPage = 1;
+    renderMotivosPage();
+}
+
+function initMotivosSorting() {
+    document.querySelectorAll('#mod-motivos .data-table th.sortable').forEach(th => {
+        th.addEventListener('click', () => sortMotivoRows(th.dataset.sortKey, th.dataset.sortType));
+    });
+}
+
+// ---- ALTO DINÁMICO DE LA TABLA (evita el doble scroll) ----
+function ajustarAlturaTablaMotivos() {
+    const scrollBox = document.getElementById('motivos-table-scroll');
+    if (!scrollBox) return;
+    const footer = document.querySelector('#mod-motivos .table-footer');
+    const top = scrollBox.getBoundingClientRect().top;
+    const alturaFooter = footer ? footer.offsetHeight : 0;
+
+    let margenInferior = 16;
+    const contentCard = scrollBox.closest('.content-card') || document.querySelector('.content-card');
+    if (contentCard) {
+        const cs = getComputedStyle(contentCard);
+        margenInferior += (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.marginBottom) || 0);
+    }
+
+    const disponible = window.innerHeight - top - alturaFooter - margenInferior;
+    scrollBox.style.maxHeight = Math.max(220, disponible) + 'px';
 }
 
 // ============================================================
@@ -173,13 +295,20 @@ function initMotivosModule() {
     document.getElementById('motivo-search')?.addEventListener('input', applyFilters);
     document.getElementById('btn-clear-filters')?.addEventListener('click', clearFilters);
 
-    document.querySelectorAll('.filter-toggle').forEach(btn => {
+    document.querySelectorAll('#mod-motivos .filter-toggle').forEach(btn => {
         btn.addEventListener('click', function() {
-            document.querySelectorAll('.filter-toggle').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#mod-motivos .filter-toggle').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             applyFilters();
         });
     });
+
+    // ---------- PAGINACIÓN Y ORDENAMIENTO ----------
+    initMotivosPagination();
+    initMotivosSorting();
+    renderMotivosPage();
+    ajustarAlturaTablaMotivos();
+    window.addEventListener('resize', ajustarAlturaTablaMotivos);
 
     document.querySelectorAll('.btn-close-new-modal, .btn-cancel-new-modal')
         .forEach(btn => btn.addEventListener('click', closeNewModal));
@@ -193,16 +322,10 @@ function initMotivosModule() {
         cerrarConfirmEliminar();
         if (typeof accion === 'function') accion();
     });
-    document.getElementById('modal-confirm-eliminar')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-confirm-eliminar') cerrarConfirmEliminar();
-    });
 
-    document.getElementById('modal-new-motivo')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-new-motivo') closeNewModal();
-    });
-    document.getElementById('modal-edit-motivo')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-edit-motivo') closeEditModal();
-    });
+    // Los modales NO se cierran al hacer clic por fuera (en el fondo oscuro):
+    // así no se pierde lo que se lleva escrito en un formulario por un clic
+    // accidental. Se cierran solo con la X, "Cancelar" o "Cerrar".
 
     // ---------- SUBMIT: NUEVO MOTIVO ----------
     document.getElementById('new-btn-save')?.addEventListener('click', async function() {

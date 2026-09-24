@@ -31,6 +31,16 @@ function limpiar_error_pgsql(string $msg): string {
 }
 
 // ============================================================
+// LARGO DE UN TEXTO EN CARACTERES (no en bytes)
+// strlen() cuenta "é" o "ñ" como 2; esto cuenta letras reales.
+// No depende de la extensión mbstring (que puede no estar activa).
+// ============================================================
+function largo_texto(string $texto): int {
+    $total = preg_match_all('/./us', $texto);
+    return $total === false ? strlen($texto) : $total;
+}
+
+// ============================================================
 // ESTADOS DE MOVIMIENTO
 // ============================================================
 const ESTADOS_MOVIMIENTO = [
@@ -70,8 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $errores = [];
 
-            if (strlen($nom_caja_menor) < 3 || strlen($nom_caja_menor) > 30) {
-                $errores['err-new-nombre'] = 'El nombre debe tener entre 3 y 30 caracteres.';
+            if (largo_texto($nom_caja_menor) < 3 || largo_texto($nom_caja_menor) > 50) {
+                $errores['err-new-nombre'] = 'El nombre debe tener entre 3 y 50 caracteres.';
             }
             if ($monto_asignado < 0 || $monto_asignado > 99999999) {
                 $errores['err-new-monto'] = 'El monto asignado debe estar entre 0 y 99.999.999.';
@@ -104,8 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($id_caja_menor <= 0) {
                 $errores['err-edit-nombre'] = 'Caja no válida.';
             }
-            if (strlen($nom_caja_menor) < 3 || strlen($nom_caja_menor) > 30) {
-                $errores['err-edit-nombre'] = 'El nombre debe tener entre 3 y 30 caracteres.';
+            if (largo_texto($nom_caja_menor) < 3 || largo_texto($nom_caja_menor) > 50) {
+                $errores['err-edit-nombre'] = 'El nombre debe tener entre 3 y 50 caracteres.';
             }
 
             if (!empty($errores)) {
@@ -214,7 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode($respuesta);
         exit;
 
-    } catch (Exception $e) {
+    } catch (Throwable $e) { // Throwable: también atrapa errores fatales de PHP y responde JSON
         $mensaje = limpiar_error_pgsql($e->getMessage());
         if (empty($mensaje)) {
             $mensaje = $e->getMessage();
@@ -303,18 +313,37 @@ ob_start();
         <button id="btn-clear-filters" class="btn-clear-filter" style="display:none">
             <i class="fas fa-times"></i> Limpiar
         </button>
+        <div class="pagination-size">
+            <label for="cajas-page-size">Filas por página</label>
+            <select id="cajas-page-size">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="all">Todos</option>
+            </select>
+        </div>
         <span class="filter-info" id="cajas-count"><?= $total ?> resultado<?= $total !== 1 ? 's' : '' ?></span>
     </div>
 
     <!-- TABLA -->
     <div class="table-container">
+      <div class="table-scroll" id="cajas-table-scroll">
         <table class="data-table">
+            <!-- Anchos fijos: las columnas no se mueven al ordenar o cambiar de página -->
+            <colgroup>
+                <col class="col-caja">
+                <col class="col-apertura">
+                <col class="col-asignado">
+                <col class="col-disponible">
+                <col class="col-estado">
+                <col class="col-acciones">
+            </colgroup>
             <thead>
                 <tr>
-                    <th>Caja</th>
-                    <th>Apertura</th>
-                    <th class="text-right">Asignado</th>
-                    <th class="text-right">Disponible</th>
+                    <th class="sortable" data-sort-key="0" data-sort-type="text">Caja <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="1" data-sort-type="text">Apertura <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="text-right sortable" data-sort-key="2" data-sort-type="number">Asignado <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="text-right sortable" data-sort-key="3" data-sort-type="number">Disponible <i class="fas fa-caret-down sort-icon"></i></th>
                     <th class="text-center">Estado</th>
                     <th class="text-center">Acciones</th>
                 </tr>
@@ -343,13 +372,13 @@ ob_start();
                         : 0;
                 ?>
                 <tr data-estado="<?= $filtro ?>" onclick='openDetailModal(<?= json_encode($c) ?>)'>
-                    <td>
+                    <td data-sort="<?= htmlspecialchars($c['nom_caja_menor']) ?>">
                         <strong><?= htmlspecialchars($c['nom_caja_menor']) ?></strong><br>
                         <small style="color:#94a3b8;font-size:11px">#<?= $id_caja_esc ?> — <?= $pct_disp ?>% disponible</small>
                     </td>
-                    <td><?= htmlspecialchars(date('d/m/Y', strtotime($c['fecha_apertura']))) ?></td>
-                    <td class="text-right">$<?= number_format((float)$c['monto_asignado'], 0, ',', '.') ?></td>
-                    <td class="text-right">$<?= number_format((float)$c['monto_disponible'], 0, ',', '.') ?></td>
+                    <td data-sort="<?= htmlspecialchars(date('Y-m-d', strtotime($c['fecha_apertura']))) ?>"><?= htmlspecialchars(date('d/m/Y', strtotime($c['fecha_apertura']))) ?></td>
+                    <td class="text-right" data-sort="<?= (float)$c['monto_asignado'] ?>">$<?= number_format((float)$c['monto_asignado'], 0, ',', '.') ?></td>
+                    <td class="text-right" data-sort="<?= (float)$c['monto_disponible'] ?>">$<?= number_format((float)$c['monto_disponible'], 0, ',', '.') ?></td>
                     <td class="text-center"><?= $badge ?></td>
                     <td class="text-center" onclick="event.stopPropagation()">
                         <button class="btn-icon-sm edit" onclick='openEditModal(<?= json_encode($c) ?>)' title="Editar nombre">
@@ -366,6 +395,20 @@ ob_start();
             <?php endif; ?>
             </tbody>
         </table>
+      </div>
+
+        <!-- PAGINACIÓN -->
+        <div class="table-footer">
+            <div class="pagination-nav">
+                <span class="pagination-range" id="cajas-range">0 de 0</span>
+                <button type="button" id="cajas-prev" class="pagination-btn" disabled aria-label="Página anterior">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button type="button" id="cajas-next" class="pagination-btn" disabled aria-label="Página siguiente">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -384,7 +427,7 @@ ob_start();
                 <input type="hidden" name="btn_nuevo" value="1">
                 <div class="form-field">
                     <label class="form-label">Nombre de la Caja <span class="required">*</span></label>
-                    <input type="text" id="new-nom-caja" name="txt_nom_caja_menor" class="form-input" placeholder="Ej: Caja Menor Bodega" minlength="3" maxlength="30">
+                    <input type="text" id="new-nom-caja" name="txt_nom_caja_menor" class="form-input" placeholder="Ej: Caja Menor Bodega" minlength="3" maxlength="50">
                     <span class="field-error" id="err-new-nombre"></span>
                 </div>
                 <div class="form-field">
@@ -418,7 +461,7 @@ ob_start();
                 <input type="hidden" name="hid_edit_id" id="edit-caja-id" value="">
                 <div class="form-field">
                     <label class="form-label">Nombre de la Caja <span class="required">*</span></label>
-                    <input type="text" id="edit-nom-caja" name="txt_edit_nom_caja_menor" class="form-input" minlength="3" maxlength="30">
+                    <input type="text" id="edit-nom-caja" name="txt_edit_nom_caja_menor" class="form-input" minlength="3" maxlength="50">
                     <span class="field-error" id="err-edit-nombre"></span>
                 </div>
                 <div class="form-field">

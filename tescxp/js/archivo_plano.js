@@ -383,34 +383,160 @@ window.descargarArchivoPlano = async function(id) {
 };
 
 // ============================================================
-// 6. FILTROS
+// 6. FILTROS + PAGINACIÓN + ORDENAMIENTO (mismo sistema que Proveedores)
 // ============================================================
-function applyFilters() {
+
+// ---- ESTADO DE PAGINACIÓN ----
+let archivosPage     = 1;
+let archivosPageSize = 25; // debe coincidir con el <option selected> de #archivos-page-size
+
+// Filas que pasan la búsqueda y el filtro Todos/Generados/Por generar (sin tener en cuenta la página)
+function getFilteredArchivoRows() {
     const query  = val('archivo-search').toLowerCase().trim();
-    const active = document.querySelector('.filter-toggle.active')?.dataset.filter ?? 'all';
-    const rows   = document.querySelectorAll('#archivos-tbody tr:not(.empty-row)');
-    let visibles = 0;
-
-    rows.forEach(row => {
-        const texto = row.children[0]?.textContent.toLowerCase() + ' ' + row.children[1]?.textContent.toLowerCase();
-        const matchesQuery  = !query || texto.includes(query);
-        const matchesFilter = active === 'all' || row.dataset.estado === active;
-        const visible = matchesQuery && matchesFilter;
-        row.style.display = visible ? '' : 'none';
-        if (visible) visibles++;
+    const active = document.querySelector('#mod-archivo-plano .filter-toggle.active')?.dataset.filter ?? 'all';
+    const filas  = Array.from(document.querySelectorAll('#archivos-tbody tr:not(.empty-row)'));
+    return filas.filter(fila => {
+        const texto = (fila.children[0]?.textContent.toLowerCase() ?? '') + ' '
+                    + (fila.children[1]?.textContent.toLowerCase() ?? '');
+        const pasaTexto  = !query || texto.includes(query);
+        const pasaEstado = active === 'all' || fila.dataset.estado === active;
+        return pasaTexto && pasaEstado;
     });
+}
 
-    setText('archivos-count', `${visibles} resultado${visibles !== 1 ? 's' : ''}`);
+// Aplica búsqueda/estado y vuelve a la primera página
+function applyFilters() {
+    archivosPage = 1;
+    renderArchivosPage();
 
+    const query    = val('archivo-search').trim();
+    const active   = document.querySelector('#mod-archivo-plano .filter-toggle.active')?.dataset.filter ?? 'all';
     const clearBtn = document.getElementById('btn-clear-filters');
-    if (clearBtn) clearBtn.style.display = (query || active !== 'all') ? '' : 'none';
+    if (clearBtn) clearBtn.style.display = (query || active !== 'all') ? 'flex' : 'none';
 }
 
 function clearFilters() {
     setVal('archivo-search', '');
-    document.querySelectorAll('.filter-toggle').forEach(btn => btn.classList.remove('active'));
-    document.querySelector('.filter-toggle[data-filter="all"]')?.classList.add('active');
+    document.querySelectorAll('#mod-archivo-plano .filter-toggle').forEach(btn => btn.classList.remove('active'));
+    document.querySelector('#mod-archivo-plano .filter-toggle[data-filter="all"]')?.classList.add('active');
     applyFilters();
+}
+
+// Muestra solo las filas que pasan el filtro Y caen en la página actual
+function renderArchivosPage() {
+    const todas     = Array.from(document.querySelectorAll('#archivos-tbody tr:not(.empty-row)'));
+    const coinciden = getFilteredArchivoRows();
+    todas.forEach(fila => { fila.style.display = 'none'; });
+
+    const total        = coinciden.length;
+    const esTodos      = archivosPageSize === 'all';
+    const size         = esTodos ? total : archivosPageSize;
+    const totalPaginas = size > 0 ? Math.max(1, Math.ceil(total / size)) : 1;
+    if (archivosPage > totalPaginas) archivosPage = totalPaginas;
+    if (archivosPage < 1) archivosPage = 1;
+
+    const start = esTodos ? 0 : (archivosPage - 1) * size;
+    const end   = esTodos ? total : Math.min(start + size, total);
+    coinciden.slice(start, end).forEach(fila => { fila.style.display = ''; });
+
+    setText('archivos-count', `${total} resultado${total !== 1 ? 's' : ''}`);
+
+    const rangeEl = document.getElementById('archivos-range');
+    if (rangeEl) {
+        rangeEl.textContent = total === 0 ? '0 de 0' : `${start + 1}–${end} de ${total}`;
+    }
+
+    const btnPrev = document.getElementById('archivos-prev');
+    const btnNext = document.getElementById('archivos-next');
+    if (btnPrev) btnPrev.disabled = archivosPage <= 1;
+    if (btnNext) btnNext.disabled = esTodos || archivosPage >= totalPaginas;
+}
+
+function initArchivosPagination() {
+    document.getElementById('archivos-page-size')?.addEventListener('change', function() {
+        archivosPageSize = this.value === 'all' ? 'all' : parseInt(this.value, 10);
+        archivosPage = 1;
+        renderArchivosPage();
+    });
+    document.getElementById('archivos-prev')?.addEventListener('click', () => {
+        archivosPage--;
+        renderArchivosPage();
+    });
+    document.getElementById('archivos-next')?.addEventListener('click', () => {
+        archivosPage++;
+        renderArchivosPage();
+    });
+}
+
+// ---- ORDENAMIENTO ASC / DESC ----
+// Cada celda ordenable trae su valor "crudo" en data-sort. La fecha de
+// generación va en 'YYYY-MM-DD'; los archivos aún sin generar (sin fecha)
+// quedan juntos al principio (asc) o al final (desc).
+let archivosSortKey = null; // índice de columna, coincide con data-sort-key del <th>
+let archivosSortDir = 'asc';
+
+function sortArchivoRows(key, type) {
+    const tbody = document.getElementById('archivos-tbody');
+    if (!tbody) return;
+    const filas = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
+    if (filas.length === 0) return;
+
+    archivosSortDir = (archivosSortKey === key && archivosSortDir === 'asc') ? 'desc' : 'asc';
+    archivosSortKey = key;
+
+    const getValor = fila => {
+        const celda = fila.cells[Number(key)];
+        const crudo = celda?.dataset.sort;
+        const base  = crudo !== undefined ? crudo : (celda?.textContent.trim() ?? '');
+        return type === 'number' ? (parseFloat(base) || 0) : base.toLowerCase();
+    };
+
+    filas.sort((a, b) => {
+        const va  = getValor(a);
+        const vb  = getValor(b);
+        const cmp = type === 'number' ? (va - vb) : va.localeCompare(vb, 'es', { numeric: true });
+        return archivosSortDir === 'asc' ? cmp : -cmp;
+    });
+    filas.forEach(fila => tbody.appendChild(fila));
+
+    document.querySelectorAll('#mod-archivo-plano .data-table th.sortable').forEach(th => {
+        const icon   = th.querySelector('.sort-icon');
+        const activo = th.dataset.sortKey === key;
+        th.classList.toggle('sort-active', activo);
+        if (icon) {
+            icon.className = activo
+                ? `fas sort-icon ${archivosSortDir === 'asc' ? 'fa-caret-up' : 'fa-caret-down'}`
+                : 'fas fa-caret-down sort-icon';
+        }
+    });
+
+    archivosPage = 1;
+    renderArchivosPage();
+}
+
+function initArchivosSorting() {
+    document.querySelectorAll('#mod-archivo-plano .data-table th.sortable').forEach(th => {
+        th.addEventListener('click', () => sortArchivoRows(th.dataset.sortKey, th.dataset.sortType));
+    });
+}
+
+// ---- ALTO DINÁMICO DE LA TABLA (evita el doble scroll) ----
+function ajustarAlturaTablaArchivos() {
+    const scrollBox = document.getElementById('archivos-table-scroll');
+    if (!scrollBox) return;
+    const footer = document.querySelector('#mod-archivo-plano .table-footer');
+    const top = scrollBox.getBoundingClientRect().top;
+    const alturaFooter = footer ? footer.offsetHeight : 0;
+
+    let margenInferior = 16;
+    const contentCard = scrollBox.closest('.content-card') || document.querySelector('.content-card');
+    if (contentCard) {
+        const cs = getComputedStyle(contentCard);
+        margenInferior += (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.marginBottom) || 0);
+    }
+
+    const disponible = window.innerHeight - top - alturaFooter - margenInferior;
+    scrollBox.style.maxHeight = Math.max(220, disponible) + 'px';
 }
 
 // ============================================================
@@ -433,13 +559,20 @@ function initArchivoModule() {
     document.getElementById('archivo-search')?.addEventListener('input', applyFilters);
     document.getElementById('btn-clear-filters')?.addEventListener('click', clearFilters);
 
-    document.querySelectorAll('.filter-toggle').forEach(btn => {
+    document.querySelectorAll('#mod-archivo-plano .filter-toggle').forEach(btn => {
         btn.addEventListener('click', function() {
-            document.querySelectorAll('.filter-toggle').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#mod-archivo-plano .filter-toggle').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             applyFilters();
         });
     });
+
+    // ---------- PAGINACIÓN Y ORDENAMIENTO ----------
+    initArchivosPagination();
+    initArchivosSorting();
+    renderArchivosPage();
+    ajustarAlturaTablaArchivos();
+    window.addEventListener('resize', ajustarAlturaTablaArchivos);
 
     document.getElementById('new-id-cronograma')?.addEventListener('change', onCronogramaChange);
 
@@ -454,15 +587,9 @@ function initArchivoModule() {
         descargarArchivoPlano(idArchivoDetalleActual);
     });
 
-    document.getElementById('modal-new-archivo')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-new-archivo') closeNewModal();
-    });
-    document.getElementById('modal-edit-archivo')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-edit-archivo') closeEditModal();
-    });
-    document.getElementById('modal-detail')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-detail') closeDetailModal();
-    });
+    // Los modales NO se cierran al hacer clic por fuera (en el fondo oscuro):
+    // así no se pierde lo que se lleva escrito en un formulario por un clic
+    // accidental. Se cierran solo con la X, "Cancelar" o "Cerrar".
 
     // ---------- SUBMIT: NUEVO ARCHIVO PLANO ----------
     document.getElementById('new-btn-save')?.addEventListener('click', async function() {

@@ -238,17 +238,35 @@ ob_start();
         <button id="btn-clear-filters" class="btn-clear-filter" style="display:none">
             <i class="fas fa-times"></i> Limpiar
         </button>
+        <div class="pagination-size">
+            <label for="cuentas-page-size">Filas por página</label>
+            <select id="cuentas-page-size">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="all">Todos</option>
+            </select>
+        </div>
         <span class="filter-info" id="cuentas-count"><?= $total ?> resultado<?= $total !== 1 ? 's' : '' ?></span>
     </div>
 
     <!-- TABLA -->
     <div class="table-container">
+      <div class="table-scroll" id="cuentas-table-scroll">
         <table class="data-table">
+            <!-- Anchos fijos: las columnas no se mueven al ordenar o cambiar de página -->
+            <colgroup>
+                <col class="col-nit">
+                <col class="col-banco">
+                <col class="col-cuenta">
+                <col class="col-tipo">
+                <col class="col-acciones">
+            </colgroup>
             <thead>
                 <tr>
                     <th>NIT Empresa</th>
-                    <th>Banco</th>
-                    <th>Número de Cuenta</th>
+                    <th class="sortable" data-sort-key="1" data-sort-type="text">Banco <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="2" data-sort-type="text">Número de Cuenta <i class="fas fa-caret-down sort-icon"></i></th>
                     <th class="text-center">Tipo</th>
                     <th class="text-center">Acciones</th>
                 </tr>
@@ -276,8 +294,8 @@ ob_start();
                 ?>
                 <tr data-tipo="<?= $filtro_tipo ?>">
                     <td><strong><?= $id_emp_esc ?></strong></td>
-                    <td><?= htmlspecialchars($c['nom_banco']) ?></td>
-                    <td><?= $cta_esc ?></td>
+                    <td data-sort="<?= htmlspecialchars($c['nom_banco']) ?>"><?= htmlspecialchars($c['nom_banco']) ?></td>
+                    <td data-sort="<?= $cta_esc ?>"><?= $cta_esc ?></td>
                     <td class="text-center"><?= $badge_tipo ?></td>
                     <td class="text-center">
                         <button class="btn-icon-sm edit" onclick='openEditModal(<?= json_encode($c) ?>)'>
@@ -292,6 +310,20 @@ ob_start();
             <?php endif; ?>
             </tbody>
         </table>
+      </div>
+
+        <!-- PAGINACIÓN -->
+        <div class="table-footer">
+            <div class="pagination-nav">
+                <span class="pagination-range" id="cuentas-range">0 de 0</span>
+                <button type="button" id="cuentas-prev" class="pagination-btn" disabled aria-label="Página anterior">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button type="button" id="cuentas-next" class="pagination-btn" disabled aria-label="Página siguiente">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 

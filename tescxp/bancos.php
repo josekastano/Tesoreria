@@ -243,16 +243,33 @@ ob_start();
         <button id="btn-clear-filters" class="btn-clear-filter" style="display:none">
             <i class="fas fa-times"></i> Limpiar
         </button>
+        <div class="pagination-size">
+            <label for="bancos-page-size">Filas por página</label>
+            <select id="bancos-page-size">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="all">Todos</option>
+            </select>
+        </div>
         <span class="filter-info" id="bancos-count"><?= $total ?> resultado<?= $total !== 1 ? 's' : '' ?></span>
     </div>
 
     <!-- TABLA -->
     <div class="table-container">
+      <div class="table-scroll" id="bancos-table-scroll">
         <table class="data-table">
+            <!-- Anchos fijos: las columnas no se mueven al ordenar o cambiar de página -->
+            <colgroup>
+                <col class="col-codigo">
+                <col class="col-nombre">
+                <col class="col-estado">
+                <col class="col-acciones">
+            </colgroup>
             <thead>
                 <tr>
-                    <th>Código</th>
-                    <th>Nombre del Banco</th>
+                    <th class="sortable" data-sort-key="0" data-sort-type="text">Código <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="1" data-sort-type="text">Nombre del Banco <i class="fas fa-caret-down sort-icon"></i></th>
                     <th class="text-center">Estado</th>
                     <th class="text-center">Acciones</th>
                 </tr>
@@ -279,8 +296,8 @@ ob_start();
                     $filtro  = $es_activo ? 'activo' : 'inactivo';
                 ?>
                 <tr data-tipo="<?= $filtro ?>">
-                    <td><strong><?= $id_esc ?></strong></td>
-                    <td><?= $nom_esc ?></td>
+                    <td data-sort="<?= $id_esc ?>"><strong><?= $id_esc ?></strong></td>
+                    <td data-sort="<?= $nom_esc ?>"><?= $nom_esc ?></td>
                     <td class="text-center"><?= $badge_tipo ?></td>
                     <td class="text-center">
                         <button class="btn-icon-sm toggle" title="<?= $es_activo ? 'Desactivar' : 'Activar' ?>"
@@ -299,6 +316,20 @@ ob_start();
             <?php endif; ?>
             </tbody>
         </table>
+      </div>
+
+        <!-- PAGINACIÓN -->
+        <div class="table-footer">
+            <div class="pagination-nav">
+                <span class="pagination-range" id="bancos-range">0 de 0</span>
+                <button type="button" id="bancos-prev" class="pagination-btn" disabled aria-label="Página anterior">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button type="button" id="bancos-next" class="pagination-btn" disabled aria-label="Página siguiente">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 

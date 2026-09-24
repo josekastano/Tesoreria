@@ -350,6 +350,8 @@ function switchView(view) {
 
     if (view === 'calendario') {
         renderCalendar();
+    } else {
+        ajustarAlturaTablaCronos();
     }
 }
 
@@ -928,34 +930,163 @@ function ejecutarEliminarCronograma(id) {
 }
 
 // ============================================================
-// 7. FILTROS
+// 7. FILTROS + PAGINACIÓN + ORDENAMIENTO (mismo sistema que Proveedores)
+// ------------------------------------------------------------
+// Solo aplica a la vista Tabla. En la vista Calendario la barra de
+// filtros (con el selector de filas por página) se oculta sola.
 // ============================================================
-function applyFilters() {
+
+// ---- ESTADO DE PAGINACIÓN ----
+let cronosPage     = 1;
+let cronosPageSize = 25; // debe coincidir con el <option selected> de #cronos-page-size
+
+// Filas que pasan la búsqueda y el filtro Todos/Pendientes/Pagados (sin tener en cuenta la página)
+function getFilteredCronoRows() {
     const query  = val('crono-search').toLowerCase().trim();
-    const active = document.querySelector('.filter-toggle.active')?.dataset.filter ?? 'all';
-    const rows   = document.querySelectorAll('#cronos-tbody tr:not(.empty-row)');
-    let visibles = 0;
-
-    rows.forEach(row => {
-        const nombre = row.children[0]?.textContent.toLowerCase() ?? '';
-        const matchesQuery  = !query || nombre.includes(query);
-        const matchesFilter = active === 'all' || row.dataset.estado === active;
-        const visible = matchesQuery && matchesFilter;
-        row.style.display = visible ? '' : 'none';
-        if (visible) visibles++;
+    const active = document.querySelector('#mod-cronograma .filter-toggle.active')?.dataset.filter ?? 'all';
+    const filas  = Array.from(document.querySelectorAll('#cronos-tbody tr:not(.empty-row)'));
+    return filas.filter(fila => {
+        const nombre = fila.children[0]?.textContent.toLowerCase() ?? '';
+        const pasaTexto  = !query || nombre.includes(query);
+        const pasaEstado = active === 'all' || fila.dataset.estado === active;
+        return pasaTexto && pasaEstado;
     });
+}
 
-    setText('cronos-count', `${visibles} resultado${visibles !== 1 ? 's' : ''}`);
+// Aplica búsqueda/estado y vuelve a la primera página
+function applyFilters() {
+    cronosPage = 1;
+    renderCronosPage();
 
+    const query    = val('crono-search').trim();
+    const active   = document.querySelector('#mod-cronograma .filter-toggle.active')?.dataset.filter ?? 'all';
     const clearBtn = document.getElementById('btn-clear-filters');
-    if (clearBtn) clearBtn.style.display = (query || active !== 'all') ? '' : 'none';
+    if (clearBtn) clearBtn.style.display = (query || active !== 'all') ? 'flex' : 'none';
 }
 
 function clearFilters() {
     setVal('crono-search', '');
-    document.querySelectorAll('.filter-toggle').forEach(btn => btn.classList.remove('active'));
-    document.querySelector('.filter-toggle[data-filter="all"]')?.classList.add('active');
+    document.querySelectorAll('#mod-cronograma .filter-toggle').forEach(btn => btn.classList.remove('active'));
+    document.querySelector('#mod-cronograma .filter-toggle[data-filter="all"]')?.classList.add('active');
     applyFilters();
+}
+
+// Muestra solo las filas que pasan el filtro Y caen en la página actual
+function renderCronosPage() {
+    const todas     = Array.from(document.querySelectorAll('#cronos-tbody tr:not(.empty-row)'));
+    const coinciden = getFilteredCronoRows();
+    todas.forEach(fila => { fila.style.display = 'none'; });
+
+    const total        = coinciden.length;
+    const esTodos      = cronosPageSize === 'all';
+    const size         = esTodos ? total : cronosPageSize;
+    const totalPaginas = size > 0 ? Math.max(1, Math.ceil(total / size)) : 1;
+    if (cronosPage > totalPaginas) cronosPage = totalPaginas;
+    if (cronosPage < 1) cronosPage = 1;
+
+    const start = esTodos ? 0 : (cronosPage - 1) * size;
+    const end   = esTodos ? total : Math.min(start + size, total);
+    coinciden.slice(start, end).forEach(fila => { fila.style.display = ''; });
+
+    setText('cronos-count', `${total} resultado${total !== 1 ? 's' : ''}`);
+
+    const rangeEl = document.getElementById('cronos-range');
+    if (rangeEl) {
+        rangeEl.textContent = total === 0 ? '0 de 0' : `${start + 1}–${end} de ${total}`;
+    }
+
+    const btnPrev = document.getElementById('cronos-prev');
+    const btnNext = document.getElementById('cronos-next');
+    if (btnPrev) btnPrev.disabled = cronosPage <= 1;
+    if (btnNext) btnNext.disabled = esTodos || cronosPage >= totalPaginas;
+}
+
+function initCronosPagination() {
+    document.getElementById('cronos-page-size')?.addEventListener('change', function() {
+        cronosPageSize = this.value === 'all' ? 'all' : parseInt(this.value, 10);
+        cronosPage = 1;
+        renderCronosPage();
+    });
+    document.getElementById('cronos-prev')?.addEventListener('click', () => {
+        cronosPage--;
+        renderCronosPage();
+    });
+    document.getElementById('cronos-next')?.addEventListener('click', () => {
+        cronosPage++;
+        renderCronosPage();
+    });
+}
+
+// ---- ORDENAMIENTO ASC / DESC ----
+// Cada celda ordenable trae su valor "crudo" en data-sort: el nombre,
+// la fecha en 'YYYY-MM-DD' y el total como número (no "$1.500.000").
+let cronosSortKey = null; // índice de columna, coincide con data-sort-key del <th>
+let cronosSortDir = 'asc';
+
+function sortCronoRows(key, type) {
+    const tbody = document.getElementById('cronos-tbody');
+    if (!tbody) return;
+    const filas = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
+    if (filas.length === 0) return;
+
+    cronosSortDir = (cronosSortKey === key && cronosSortDir === 'asc') ? 'desc' : 'asc';
+    cronosSortKey = key;
+
+    const getValor = fila => {
+        const celda = fila.cells[Number(key)];
+        const crudo = celda?.dataset.sort;
+        const base  = crudo !== undefined ? crudo : (celda?.textContent.trim() ?? '');
+        return type === 'number' ? (parseFloat(base) || 0) : base.toLowerCase();
+    };
+
+    filas.sort((a, b) => {
+        const va  = getValor(a);
+        const vb  = getValor(b);
+        const cmp = type === 'number' ? (va - vb) : va.localeCompare(vb, 'es', { numeric: true });
+        return cronosSortDir === 'asc' ? cmp : -cmp;
+    });
+    filas.forEach(fila => tbody.appendChild(fila));
+
+    document.querySelectorAll('#mod-cronograma .data-table th.sortable').forEach(th => {
+        const icon   = th.querySelector('.sort-icon');
+        const activo = th.dataset.sortKey === key;
+        th.classList.toggle('sort-active', activo);
+        if (icon) {
+            icon.className = activo
+                ? `fas sort-icon ${cronosSortDir === 'asc' ? 'fa-caret-up' : 'fa-caret-down'}`
+                : 'fas fa-caret-down sort-icon';
+        }
+    });
+
+    cronosPage = 1;
+    renderCronosPage();
+}
+
+function initCronosSorting() {
+    document.querySelectorAll('#mod-cronograma .data-table th.sortable').forEach(th => {
+        th.addEventListener('click', () => sortCronoRows(th.dataset.sortKey, th.dataset.sortType));
+    });
+}
+
+// ---- ALTO DINÁMICO DE LA TABLA (evita el doble scroll) ----
+// Si la vista Tabla está oculta (se está viendo el Calendario) no se mide:
+// se vuelve a calcular al regresar a la tabla (ver switchView).
+function ajustarAlturaTablaCronos() {
+    const scrollBox = document.getElementById('cronos-table-scroll');
+    if (!scrollBox || scrollBox.offsetParent === null) return;
+    const footer = document.querySelector('#mod-cronograma .table-footer');
+    const top = scrollBox.getBoundingClientRect().top;
+    const alturaFooter = footer ? footer.offsetHeight : 0;
+
+    let margenInferior = 16;
+    const contentCard = scrollBox.closest('.content-card') || document.querySelector('.content-card');
+    if (contentCard) {
+        const cs = getComputedStyle(contentCard);
+        margenInferior += (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.marginBottom) || 0);
+    }
+
+    const disponible = window.innerHeight - top - alturaFooter - margenInferior;
+    scrollBox.style.maxHeight = Math.max(220, disponible) + 'px';
 }
 
 // ============================================================
@@ -971,13 +1102,20 @@ function initCronoModule() {
     document.getElementById('crono-search')?.addEventListener('input', applyFilters);
     document.getElementById('btn-clear-filters')?.addEventListener('click', clearFilters);
 
-    document.querySelectorAll('.filter-toggle').forEach(btn => {
+    document.querySelectorAll('#mod-cronograma .filter-toggle').forEach(btn => {
         btn.addEventListener('click', function() {
-            document.querySelectorAll('.filter-toggle').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#mod-cronograma .filter-toggle').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             applyFilters();
         });
     });
+
+    // ---------- PAGINACIÓN Y ORDENAMIENTO (vista Tabla) ----------
+    initCronosPagination();
+    initCronosSorting();
+    renderCronosPage();
+    ajustarAlturaTablaCronos();
+    window.addEventListener('resize', ajustarAlturaTablaCronos);
 
     // ---------- TOGGLE TABLA / CALENDARIO ----------
     document.querySelectorAll('.view-toggle').forEach(btn => {
@@ -988,9 +1126,10 @@ function initCronoModule() {
     document.getElementById('cal-side-detail')?.addEventListener('click', () => openDayModal(calSelectedDate));
     document.getElementById('close-day-modal')?.addEventListener('click', closeDayModal);
     document.getElementById('close-day-btn')?.addEventListener('click', closeDayModal);
-    document.getElementById('modal-day')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-day') closeDayModal();
-    });
+
+    // Los modales NO se cierran al hacer clic por fuera (en el fondo oscuro):
+    // así no se pierde lo que se lleva escrito en un formulario por un clic
+    // accidental. Se cierran solo con la X, "Cancelar" o "Cerrar".
 
     document.querySelectorAll('.cuota-checkbox').forEach(cb => {
         cb.addEventListener('change', updateSeleccionCuotas);
@@ -1008,9 +1147,6 @@ function initCronoModule() {
         cerrarConfirmVencidas();
         enviarNuevoCronograma();
     });
-    document.getElementById('modal-confirm-vencidas')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-confirm-vencidas') cerrarConfirmVencidas();
-    });
 
     document.querySelectorAll('.btn-close-new-modal, .btn-cancel-new-modal')
         .forEach(btn => btn.addEventListener('click', closeNewModal));
@@ -1020,15 +1156,6 @@ function initCronoModule() {
     document.getElementById('close-detail-modal')?.addEventListener('click', closeDetailModal);
     document.getElementById('close-detail-btn')?.addEventListener('click', closeDetailModal);
 
-    document.getElementById('modal-new-crono')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-new-crono') closeNewModal();
-    });
-    document.getElementById('modal-edit-crono')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-edit-crono') closeEditModal();
-    });
-    document.getElementById('modal-detail')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-detail') closeDetailModal();
-    });
 
     // ---------- MODAL: CONFIRMAR ELIMINACIÓN ----------
     document.getElementById('confirm-eliminar-cancel-btn')?.addEventListener('click', cerrarConfirmEliminar);
@@ -1036,9 +1163,6 @@ function initCronoModule() {
         const accion = _confirmDeleteAction;
         cerrarConfirmEliminar();
         if (typeof accion === 'function') accion();
-    });
-    document.getElementById('modal-confirm-eliminar')?.addEventListener('click', e => {
-        if (e.target.id === 'modal-confirm-eliminar') cerrarConfirmEliminar();
     });
 
     // ---------- SUBMIT: NUEVO CRONOGRAMA ----------

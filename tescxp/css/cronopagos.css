@@ -233,7 +233,7 @@
 
 #mod-cronograma .filter-info {
     font-size: 11px; font-weight: 500;
-    color: var(--dash-text-muted); margin-left: auto;
+    color: var(--dash-text-muted);
     white-space: nowrap;
 }
 
@@ -242,12 +242,47 @@
     background: var(--dash-card);
     border: 1px solid var(--dash-border);
     border-radius: var(--dash-radius);
+    overflow: hidden;
+}
+
+/* Scroll interno: la tarjeta no crece con cada fila y el encabezado
+   queda fijo arriba. El alto real lo calcula JS (ajustarAlturaTablaCronos);
+   este valor es solo el respaldo mientras carga el JS. */
+#mod-cronograma .table-scroll {
+    max-height: 460px;
+    overflow-y: auto;
     overflow-x: auto;
 }
 
+#mod-cronograma .data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+#mod-cronograma .table-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+#mod-cronograma .table-scroll::-webkit-scrollbar-track { background: transparent; }
+#mod-cronograma .table-scroll::-webkit-scrollbar-thumb {
+    background: #d7dce3;
+    border-radius: 30px;
+}
+#mod-cronograma .table-scroll::-webkit-scrollbar-thumb:hover { background: #b9c1cc; }
+
 #mod-cronograma .data-table {
     width: 100%; border-collapse: collapse; font-size: 13px;
+    /* Anchos fijos por columna (definidos en el <colgroup>): la tabla no
+       recalcula los anchos según las filas visibles, así las columnas no
+       se mueven al ordenar, filtrar o cambiar de página. */
+    table-layout: fixed;
+    min-width: 820px;
 }
+
+/* Reparto proporcional del ancho (suma 100%) */
+#mod-cronograma .data-table col.col-cronograma  { width: 30%; }
+#mod-cronograma .data-table col.col-fecha       { width: 22%; }
+#mod-cronograma .data-table col.col-total       { width: 20%; }
+#mod-cronograma .data-table col.col-estado      { width: 14%; }
+#mod-cronograma .data-table col.col-acciones    { width: 14%; }
 
 #mod-cronograma .data-table th {
     text-align: left; padding: 14px 16px;
@@ -255,12 +290,153 @@
     font-size: 11px; text-transform: uppercase;
     letter-spacing: 0.05em; color: var(--dash-text-sub);
     border-bottom: 1px solid var(--dash-border);
+    white-space: nowrap;
+}
+
+/* Los encabezados respetan la alineación de su columna */
+#mod-cronograma .data-table th.text-center { text-align: center; }
+#mod-cronograma .data-table th.text-right  { text-align: right; }
+
+/* Fecha Programada (2ª columna) y Total a Pagar (3ª columna): centradas,
+   tanto el encabezado como los valores. Va después de .text-right para
+   ganarle a la alineación a la derecha que trae el Total. */
+#mod-cronograma .data-table th:nth-child(2),
+#mod-cronograma .data-table th:nth-child(3),
+#mod-cronograma .data-table td:nth-child(2),
+#mod-cronograma .data-table td:nth-child(3) {
+    text-align: center;
+}
+
+/* La flecha de orden se saca del flujo (queda "flotando" justo a la
+   derecha del título, sin ocupar espacio): así el TEXTO del título se
+   centra exactamente encima de los valores y no se corre a la izquierda.
+   El <th> ya es position: sticky, que sirve de referencia para la flecha. */
+#mod-cronograma .data-table th.sortable:nth-child(2) .sort-icon,
+#mod-cronograma .data-table th.sortable:nth-child(3) .sort-icon {
+    position: absolute;
+}
+
+/* ---- ORDENAMIENTO DE COLUMNAS ---- */
+#mod-cronograma .data-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+}
+
+#mod-cronograma .data-table th.sortable:hover { color: var(--dash-blue); }
+
+#mod-cronograma .data-table th.sortable .sort-icon {
+    display: inline-block;
+    width: 12px;
+    text-align: center;
+    font-size: 13px;
+    margin-left: 5px;
+    color: var(--dash-text-muted);
+    opacity: 0.5;
+    vertical-align: -1px;
+}
+
+#mod-cronograma .data-table th.sortable:hover .sort-icon { color: var(--dash-blue); opacity: 1; }
+
+#mod-cronograma .data-table th.sortable.sort-active { color: var(--dash-blue); }
+
+#mod-cronograma .data-table th.sortable.sort-active .sort-icon {
+    font-size: 16px;
+    color: var(--dash-blue);
+    opacity: 1;
 }
 
 #mod-cronograma .data-table td {
     padding: 12px 16px;
     border-bottom: 1px solid var(--dash-border);
     color: var(--dash-text-body); vertical-align: middle;
+    overflow-wrap: anywhere; /* textos largos bajan de línea sin empujar otras columnas */
+}
+
+/* ---- PAGINACIÓN ---- */
+#mod-cronograma .table-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #f9fafb;
+    border-top: 1px solid var(--dash-border);
+}
+
+#mod-cronograma .pagination-size {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--dash-text-sub);
+    margin-left: auto;
+}
+
+#mod-cronograma .pagination-size select {
+    padding: 6px 28px 6px 12px;
+    border: 1px solid var(--dash-border);
+    border-radius: 30px;
+    font-family: var(--dash-font);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--dash-text-body);
+    background: var(--dash-card);
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%2394a3b8' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    transition: border-color 0.2s;
+}
+
+#mod-cronograma .pagination-size select:focus {
+    border-color: var(--dash-blue);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--dash-blue) 10%, transparent);
+}
+
+#mod-cronograma .pagination-nav {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+#mod-cronograma .pagination-range {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--dash-text-muted);
+}
+
+#mod-cronograma .pagination-btn {
+    width: 30px; height: 30px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--dash-blue);
+    border-radius: 50%;
+    background: var(--dash-blue);
+    color: white;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#mod-cronograma .pagination-btn:hover:not(:disabled) {
+    background: var(--dash-blue-dark);
+    border-color: var(--dash-blue-dark);
+}
+
+#mod-cronograma .pagination-btn:disabled {
+    border-color: var(--dash-border);
+    background: var(--dash-card);
+    color: var(--dash-text-muted);
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+@media (max-width: 700px) {
+    #mod-cronograma .table-footer { justify-content: center; text-align: center; }
 }
 
 #mod-cronograma .data-table tr:last-child td { border-bottom: none; }
@@ -1506,7 +1682,7 @@
 /* ---- RESPONSIVE ---- */
 @media (max-width: 900px) {
     #mod-cronograma { padding: 20px; }
-    #mod-cronograma     #mod-cronograma .filter-bar { flex-direction: column; align-items: stretch; }
+    #mod-cronograma .filter-bar { flex-direction: column; align-items: stretch; }
     #mod-cronograma .filter-info { margin-left: 0; text-align: center; }
     .form-grid { grid-template-columns: 1fr; }
     .detail-grid { grid-template-columns: 1fr; }

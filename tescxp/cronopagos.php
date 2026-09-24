@@ -358,6 +358,15 @@ ob_start();
         <button id="btn-clear-filters" class="btn-clear-filter" style="display:none">
             <i class="fas fa-times"></i> Limpiar
         </button>
+        <div class="pagination-size">
+            <label for="cronos-page-size">Filas por página</label>
+            <select id="cronos-page-size">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="all">Todos</option>
+            </select>
+        </div>
         <span class="filter-info" id="cronos-count"><?= $total ?> resultado<?= $total !== 1 ? 's' : '' ?></span>
     </div>
 
@@ -372,12 +381,21 @@ ob_start();
 
     <!-- TABLA -->
     <div class="table-container">
+      <div class="table-scroll" id="cronos-table-scroll">
         <table class="data-table">
+            <!-- Anchos fijos: las columnas no se mueven al ordenar o cambiar de página -->
+            <colgroup>
+                <col class="col-cronograma">
+                <col class="col-fecha">
+                <col class="col-total">
+                <col class="col-estado">
+                <col class="col-acciones">
+            </colgroup>
             <thead>
                 <tr>
-                    <th>Cronograma</th>
-                    <th>Fecha Programada</th>
-                    <th class="text-right">Total a Pagar</th>
+                    <th class="sortable" data-sort-key="0" data-sort-type="text">Cronograma <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="sortable" data-sort-key="1" data-sort-type="text">Fecha Programada <i class="fas fa-caret-down sort-icon"></i></th>
+                    <th class="text-right sortable" data-sort-key="2" data-sort-type="number">Total a Pagar <i class="fas fa-caret-down sort-icon"></i></th>
                     <th class="text-center">Estado</th>
                     <th class="text-center">Acciones</th>
                 </tr>
@@ -403,12 +421,12 @@ ob_start();
                     $id_esc      = htmlspecialchars($c['id_cronograma']);
                 ?>
                 <tr data-estado="<?= $filtro ?>" onclick='openDetailModal(<?= json_encode($c) ?>)'>
-                    <td>
+                    <td data-sort="<?= htmlspecialchars($c['nom_cronograma']) ?>">
                         <strong><?= htmlspecialchars($c['nom_cronograma']) ?></strong><br>
                         <small style="color:#94a3b8;font-size:11px">#<?= $id_esc ?></small>
                     </td>
-                    <td><?= htmlspecialchars(date('d/m/Y', strtotime($c['fec_programacion']))) ?></td>
-                    <td>$<?= number_format((float)$c['total_a_pagar'], 0, ',', '.') ?></td>
+                    <td data-sort="<?= htmlspecialchars(date('Y-m-d', strtotime($c['fec_programacion']))) ?>"><?= htmlspecialchars(date('d/m/Y', strtotime($c['fec_programacion']))) ?></td>
+                    <td class="text-right" data-sort="<?= (float)$c['total_a_pagar'] ?>">$<?= number_format((float)$c['total_a_pagar'], 0, ',', '.') ?></td>
                     <td class="text-center"><?= $badge ?></td>
                     <td class="text-center" onclick="event.stopPropagation()">
                         <button class="btn-icon-sm edit" onclick='openEditModal(<?= json_encode($c) ?>)'>
@@ -423,6 +441,20 @@ ob_start();
             <?php endif; ?>
             </tbody>
         </table>
+      </div>
+
+        <!-- PAGINACIÓN -->
+        <div class="table-footer">
+            <div class="pagination-nav">
+                <span class="pagination-range" id="cronos-range">0 de 0</span>
+                <button type="button" id="cronos-prev" class="pagination-btn" disabled aria-label="Página anterior">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button type="button" id="cronos-next" class="pagination-btn" disabled aria-label="Página siguiente">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
     </div>
     </div>
     <!-- /VISTA: TABLA -->
