@@ -55,7 +55,7 @@ CREATE TABLE tab_festivos
 CREATE TABLE tab_enc_caja_menor
 (
     id_caja_menor 		DECIMAL(10,0)		NOT NULL CHECK(id_caja_menor > 0 AND id_caja_menor <= 9999999999),				                    -- ID de caja (hasta 9,999,999,999)
-    nom_caja_menor 		VARCHAR(30) 		NOT NULL CHECK(LENGTH(nom_caja_menor) >= 3 AND LENGTH(nom_caja_menor) <= 30) DEFAULT 'Caja Menor',  -- Nombre descriptivo
+    nom_caja_menor 		VARCHAR(50) 		NOT NULL CHECK(LENGTH(nom_caja_menor) >= 3 AND LENGTH(nom_caja_menor) <= 50) DEFAULT 'Caja Menor',  -- Nombre descriptivo
     monto_asignado 		DECIMAL(8,0) 		NOT NULL CHECK(monto_asignado >= 0 AND monto_asignado <= 99999999) DEFAULT 0,				        -- Fondo fijo asignado
     monto_disponible 	DECIMAL(8,0) 		NOT NULL CHECK(monto_disponible >= 0 AND monto_disponible <= 99999999),			                    -- Saldo disponible
     fecha_apertura 		DATE 				NOT NULL DEFAULT CURRENT_DATE,                                      								-- Fecha de creación (la app valida que no sea futura al abrir la caja)
