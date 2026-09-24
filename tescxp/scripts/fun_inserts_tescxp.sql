@@ -157,9 +157,9 @@ BEGIN
         RAISE EXCEPTION 'El nombre de la caja menor no puede estar vacío.';
     END IF;
 
--- VALIDAR QUE EL NOMBRE ESTÉ ENTRE 3 Y 30 CARACTERES
-    IF LENGTH(wnom_caja_menor) < 3 OR LENGTH(wnom_caja_menor) > 30 THEN
-        RAISE EXCEPTION 'El nombre de la caja menor debe tener entre 3 y 30 caracteres.';
+-- VALIDAR QUE EL NOMBRE ESTÉ ENTRE 3 Y 50 CARACTERES
+    IF LENGTH(wnom_caja_menor) < 3 OR LENGTH(wnom_caja_menor) > 50 THEN
+        RAISE EXCEPTION 'El nombre de la caja menor debe tener entre 3 y 50 caracteres.';
     END IF;
 
 -- VALIDAR QUE EL MONTO ASIGNADO ESTÉ ENTRE 0 Y 99999999
