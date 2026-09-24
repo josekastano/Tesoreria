@@ -945,6 +945,10 @@ END;
 $BODY$
 LANGUAGE PLPGSQL;
 
+--------------------------------------------------------------------------------------------------------------------------------------
+-- FUNCIÓN DE INSERT DE PAGOS DE TESORERÍA Y CUENTAS POR PAGAR
+--------------------------------------------------------------------------------------------------------------------------------------
+
 CREATE OR REPLACE FUNCTION fun_insert_pagos_cxp (wid_factura            tab_pagos_cxp.id_factura%TYPE,
                                                  wid_cuota              tab_pagos_cxp.id_cuota%TYPE,
                                                  wid_archivo_plano      tab_pagos_cxp.id_archivo_plano%TYPE,
