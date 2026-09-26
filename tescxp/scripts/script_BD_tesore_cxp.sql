@@ -288,11 +288,10 @@ CREATE TABLE tab_pagos_cxp
     id_pago             DECIMAL(10,0) NOT NULL CHECK(id_pago >= 1 AND id_pago <= 9999999999),
     id_factura          DECIMAL(8,0)  NOT NULL,
     id_cuota            DECIMAL(2,0)  NOT NULL,
-    id_archivo_plano    DECIMAL(10,0),                                                                  -- NULL solo si fue pago manual (cheque, transferencia individual)
+    id_archivo_plano    DECIMAL(10,0) NOT NULL,
     fec_pago            DATE          NOT NULL DEFAULT CURRENT_DATE,                                    -- un pago se registra cuando ya ocurrió; la app valida que no sea futura al registrarlo
     val_pago            DECIMAL(10,0) NOT NULL CHECK(val_pago > 0 AND val_pago <= 9999999999),
     estado_pago         VARCHAR(10)   NOT NULL DEFAULT 'PENDIENTE' CHECK(estado_pago IN ('PENDIENTE','APROBADO','RECHAZADO')),
-    referencia_bancaria VARCHAR(30),
     id_motivo_rechazo   DECIMAL(3,0),                                                                   -- Obligatorio si el estado es RECHAZADO
 
     PRIMARY KEY (id_pago),
