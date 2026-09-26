@@ -108,28 +108,6 @@ LANGUAGE PLPGSQL;
 CREATE TRIGGER trg_saldo_factura BEFORE INSERT ON tab_cuentasxpagar FOR EACH ROW
 EXECUTE FUNCTION fun_saldo_factura();
 
--- 3.1 Al insertar una factura, val_saldo_deuda (proveedor) = val_factura
-
-CREATE OR REPLACE FUNCTION fun_saldo_proveedor()
-RETURNS TRIGGER AS $$
-BEGIN
-    UPDATE tab_proveedores
-    SET val_saldo_deuda = COALESCE(val_saldo_deuda, 0) + NEW.val_factura
-    WHERE id_proveedor = NEW.id_proveedor;
-
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'El proveedor % no existe', NEW.id_proveedor;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE PLPGSQL;
-
-CREATE TRIGGER trg_sumar_deuda_proveedor
-AFTER INSERT ON tab_cuentasxpagar
-FOR EACH ROW
-EXECUTE FUNCTION fun_saldo_proveedor();
-
 -- =========================================================================
 -- 4. tab_cuotasxfactura
 -- =========================================================================
