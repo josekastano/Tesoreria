@@ -484,6 +484,17 @@
 #mod-cronograma .btn-icon-sm.reject { background: var(--dash-rose-light);  color: var(--dash-rose); }
 #mod-cronograma .btn-icon-sm:hover  { transform: translateY(-1px); filter: brightness(0.95); }
 
+/* Cronograma pagado: en lugar de los botones se muestra un candado */
+#mod-cronograma .accion-bloqueada {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 24px;
+    border-radius: 30px;
+    background: #f1f5f9;
+    color: var(--dash-text-muted);
+    font-size: 11px;
+    cursor: default;
+}
+
 /* ---- ESTADO VACÍO ---- */
 #mod-cronograma .empty-row td { text-align: center; padding: 48px !important; }
 

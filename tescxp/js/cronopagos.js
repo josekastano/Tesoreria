@@ -754,6 +754,12 @@ function closeNewModal() {
 // 4. MODAL: EDITAR CRONOGRAMA
 // ============================================================
 function openEditModal(crono) {
+    // Un cronograma ya pagado no se puede editar (el servidor también lo valida)
+    if (estaPagado(crono)) {
+        showToast('El cronograma ya fue pagado y no se puede editar.', 'error');
+        return;
+    }
+
     clearAllFieldErrors('edit');
     setVal('edit-crono-id', crono.id_cronograma);
     setVal('edit-nom-crono', crono.nom_cronograma);
@@ -903,6 +909,13 @@ function ejecutarEliminarDetalleCronograma(idCronograma, idFactura, idCuota) {
 // 6. ELIMINAR CRONOGRAMA (función global)
 // ============================================================
 window.eliminarCronograma = function(id, nombre) {
+    // Un cronograma ya pagado no se puede eliminar (el servidor también lo valida)
+    const crono = (cronogramasData || []).find(c => String(c.id_cronograma) === String(id));
+    if (crono && estaPagado(crono)) {
+        showToast('El cronograma ya fue pagado y no se puede eliminar.', 'error');
+        return;
+    }
+
     abrirConfirmEliminar(
         `Eliminar "${nombre}"`,
         `¿Desea eliminar el cronograma "${nombre}"? Esta acción es reversible desde la base de datos.`,

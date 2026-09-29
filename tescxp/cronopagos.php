@@ -88,6 +88,17 @@ function validar_fecha_pago(string $fecha, array $dias_pago, array $festivos_map
     return null;
 }
 
+/**
+ * Devuelve true si el cronograma ya fue pagado.
+ * Un cronograma pagado no se puede editar ni eliminar.
+ */
+function cronograma_pagado(PDO $pdo, int $id_cronograma): bool {
+    $stmt = $pdo->prepare("SELECT ind_estado FROM tab_enc_cronopagos WHERE id_cronograma = :id");
+    $stmt->execute([':id' => $id_cronograma]);
+    $estado = $stmt->fetchColumn();
+    return $estado === 't' || $estado === true;
+}
+
 // ============================================================
 // MANEJO DE PETICIONES POST (SIEMPRE RESPONDEN CON JSON)
 // ============================================================
@@ -190,6 +201,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($id_cronograma <= 0) {
                 $errores['err-edit-nombre'] = 'Cronograma no válido.';
             }
+
+            // Un cronograma ya pagado no se puede editar
+            if ($id_cronograma > 0 && cronograma_pagado($pdo, $id_cronograma)) {
+                $respuesta['message'] = 'El cronograma ya fue pagado y no se puede editar.';
+                echo json_encode($respuesta);
+                exit;
+            }
+
             if (strlen($nom_cronograma) < 3 || strlen($nom_cronograma) > 30) {
                 $errores['err-edit-nombre'] = 'El nombre debe tener entre 3 y 30 caracteres.';
             }
@@ -230,6 +249,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Cronograma no válido.');
             }
 
+            // Un cronograma ya pagado no se puede eliminar
+            if (cronograma_pagado($pdo, $id_cronograma)) {
+                throw new Exception('El cronograma ya fue pagado y no se puede eliminar.');
+            }
+
             $del_enc_cronopagos->execute([':wid_cronograma' => $id_cronograma]);
 
             $respuesta['success'] = true;
@@ -246,6 +270,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($id_cronograma <= 0 || $id_factura <= 0 || $id_cuota <= 0) {
                 throw new Exception('Datos de la cuota no válidos.');
+            }
+
+            // No se quitan cuotas de un cronograma que ya fue pagado
+            if (cronograma_pagado($pdo, $id_cronograma)) {
+                throw new Exception('El cronograma ya fue pagado y no se pueden quitar cuotas.');
             }
 
             $del_det_cronopagos->execute([
@@ -429,12 +458,19 @@ ob_start();
                     <td class="text-right" data-sort="<?= (float)$c['total_a_pagar'] ?>">$<?= number_format((float)$c['total_a_pagar'], 0, ',', '.') ?></td>
                     <td class="text-center"><?= $badge ?></td>
                     <td class="text-center" onclick="event.stopPropagation()">
-                        <button class="btn-icon-sm edit" onclick='openEditModal(<?= json_encode($c) ?>)'>
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn-icon-sm reject" onclick="eliminarCronograma(<?= $id_esc ?>, '<?= htmlspecialchars($c['nom_cronograma'], ENT_QUOTES) ?>')">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <?php if (!$pagado): ?>
+                            <!-- Solo los cronogramas pendientes se pueden editar o eliminar -->
+                            <button class="btn-icon-sm edit" onclick='openEditModal(<?= json_encode($c) ?>)' title="Editar cronograma">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-icon-sm reject" onclick="eliminarCronograma(<?= $id_esc ?>, '<?= htmlspecialchars($c['nom_cronograma'], ENT_QUOTES) ?>')" title="Eliminar cronograma">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        <?php else: ?>
+                            <span class="accion-bloqueada" title="Cronograma pagado: no se puede editar ni eliminar">
+                                <i class="fas fa-lock"></i>
+                            </span>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>

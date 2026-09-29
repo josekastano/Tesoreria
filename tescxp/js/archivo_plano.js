@@ -244,6 +244,12 @@ function closeNewModal() {
 // 4. MODAL: EDITAR ARCHIVO PLANO
 // ============================================================
 function openEditModal(archivo) {
+    // Un archivo ya generado no se edita (el servidor también lo valida)
+    if (archivo.ind_generado === 't' || archivo.ind_generado === true) {
+        showToast('El archivo plano ya fue generado y no se puede editar.', 'error');
+        return;
+    }
+
     clearAllFieldErrors('edit');
     setVal('edit-archivo-id', archivo.id_archivo_plano);
     setVal('edit-id-banco', archivo.id_banco);

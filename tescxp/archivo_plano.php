@@ -120,6 +120,13 @@ function es_verdadero($valor): bool {
     return in_array($valor, ['t', 'T', 'true', 'TRUE', '1', 1, true], true);
 }
 
+// Un archivo plano ya generado (descargado para el banco) no se puede editar.
+function archivo_plano_generado(PDO $pdo, int $id_archivo_plano): bool {
+    $stmt = $pdo->prepare("SELECT ind_generado FROM tab_enc_archivo_plano WHERE id_archivo_plano = :id");
+    $stmt->execute([':id' => $id_archivo_plano]);
+    return es_verdadero($stmt->fetchColumn());
+}
+
 // ============================================================
 // CUOTAS Y CUENTAS DE UN CRONOGRAMA, AGRUPADAS POR PROVEEDOR
 // ============================================================
@@ -486,6 +493,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($id_archivo_plano <= 0) {
                 $errores['err-edit-nombre'] = 'Archivo plano no válido.';
+            } elseif (archivo_plano_generado($pdo, $id_archivo_plano)) {
+                // Ya se descargó para el banco: no se permite cambiarlo
+                $respuesta['message'] = 'El archivo plano ya fue generado y no se puede editar.';
+                responder_json($respuesta);
             }
             if (empty($id_banco)) {
                 $errores['err-edit-banco'] = 'Seleccione un banco.';
@@ -669,9 +680,16 @@ ob_start();
                         <button class="btn-icon-sm view" onclick="descargarArchivoPlano('<?= $id_esc ?>')" title="Descargar CSV">
                             <i class="fas fa-download"></i>
                         </button>
-                        <button class="btn-icon-sm edit" onclick='openEditModal(<?= json_encode($a) ?>)'>
-                            <i class="fas fa-edit"></i>
-                        </button>
+                        <?php if (!$generado): ?>
+                            <!-- Solo se edita mientras el archivo no se haya generado -->
+                            <button class="btn-icon-sm edit" onclick='openEditModal(<?= json_encode($a) ?>)' title="Editar archivo">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        <?php else: ?>
+                            <span class="accion-bloqueada" title="Archivo generado: no se puede editar">
+                                <i class="fas fa-lock"></i>
+                            </span>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
